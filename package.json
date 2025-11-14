@@ -1,0 +1,169 @@
+{
+  "name": "vibevideo",
+  "displayName": "VibeVideo",
+  "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.105.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "vibevideo.initProject",
+        "title": "Vibe Video: Initialize Project",
+        "category": "Vibe Video"
+      },
+      {
+        "command": "vibevideo.checkStoryboards",
+        "title": "Vibe Video: Check Storyboards Quality",
+        "category": "Vibe Video"
+      },
+      {
+        "command": "vibevideo.refreshResources",
+        "title": "Vibe Video: Refresh Resources",
+        "category": "Vibe Video",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "vibevideo.showStats",
+        "title": "Vibe Video: Show Project Stats",
+        "category": "Vibe Video"
+      },
+      {
+        "command": "vibevideo.configureAPI",
+        "title": "Vibe Video: Configure Video AI",
+        "category": "Vibe Video",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "vibevideo.showConfig",
+        "title": "Vibe Video: Show Current Config",
+        "category": "Vibe Video"
+      },
+      {
+        "command": "vibevideo.generateFirstFrames",
+        "title": "Vibe Video: Generate First Frames",
+        "category": "Vibe Video",
+        "icon": "$(file-media)"
+      },
+      {
+        "command": "vibevideo.generateVideos",
+        "title": "Vibe Video: Generate All Videos",
+        "category": "Vibe Video",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vibevideo.generateSubjects",
+        "title": "Vibe Video: Generate All Subjects",
+        "category": "Vibe Video",
+        "icon": "$(account)"
+      },
+      {
+        "command": "vibevideo.composeFirstFrames",
+        "title": "Vibe Video: Compose All First Frames",
+        "category": "Vibe Video",
+        "icon": "$(combine)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vibe-video",
+          "title": "Vibe Video",
+          "icon": "$(device-camera-video)"
+        }
+      ]
+    },
+    "views": {
+      "vibe-video": [
+        {
+          "id": "vvResources",
+          "name": "项目资源"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "vibevideo.refreshResources",
+          "when": "view == vvResources",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Vibe Video",
+      "properties": {
+        "vibevideo.provider": {
+          "type": "string",
+          "default": "tongyi-wanxiang",
+          "enum": [
+            "tongyi-wanxiang"
+          ],
+          "enumDescriptions": [
+            "通义万相 - 国内服务，中文支持优秀，支持图生视频"
+          ],
+          "description": "视频 AI 服务商",
+          "order": 1
+        },
+        "vibevideo.dashscope.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "DashScope API Key（访问 https://bailian.console.aliyun.com/ 获取）",
+          "markdownDescription": "DashScope API Key\n\n[点击获取 API Key](https://bailian.console.aliyun.com/)",
+          "order": 2
+        },
+        "vibevideo.video.resolution": {
+          "type": "string",
+          "default": "1280*720",
+          "enum": [
+            "1280*720",
+            "1920*1080",
+            "832*480"
+          ],
+          "description": "视频分辨率（DashScope 格式：width*height）",
+          "order": 4
+        },
+        "vibevideo.video.defaultDuration": {
+          "type": "number",
+          "default": 5,
+          "minimum": 3,
+          "maximum": 30,
+          "description": "默认视频时长（秒）",
+          "order": 5
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.105.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "typescript-eslint": "^8.46.3",
+    "eslint": "^9.39.1",
+    "esbuild": "^0.27.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
