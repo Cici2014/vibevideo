@@ -86,18 +86,20 @@ export class BailianAPIClient {
 
   /**
    * 文生视频
+   * 注意：API 不支持自定义 duration 参数
    */
   async textToVideo(prompt: string, size: string = '832*480'): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
 
     const body = {
-      model: 'wan2.2-t2v-plus',
+      model: 'wan2.5-i2v-preview',
       input: {
         prompt
       },
       parameters: {
         size,
-        prompt_extend: true
+        prompt_extend: true,
+        audio: true  // 启用音频
       }
     };
 
@@ -126,21 +128,34 @@ export class BailianAPIClient {
 
   /**
    * 图生视频（基于首帧）
+   * 支持 base64 data URL 格式（data:image/png;base64,...）
+   * 注意：API 不支持自定义 duration 参数
    */
   async imageToVideo(imageUrl: string, prompt: string, resolution: string = '1080P'): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
 
     const body = {
-      model: 'wan2.2-i2v-plus',
+      model: 'wan2.5-i2v-preview',
       input: {
         prompt,
         img_url: imageUrl
       },
       parameters: {
         resolution,
-        prompt_extend: true
+        prompt_extend: true,
+        audio: true  // 启用音频
       }
     };
+
+    console.log('[API] 图生视频请求:', {
+      url,
+      model: 'wan2.5-i2v-preview',
+      resolution,
+      audio: true,
+      prompt: prompt.substring(0, 100),
+      imageFormat: imageUrl.startsWith('data:') ? 'base64' : 'url',
+      imageLength: imageUrl.length
+    });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -153,6 +168,14 @@ export class BailianAPIClient {
     });
 
     const data = await response.json() as APIResponse;
+
+    console.log('[API] 图生视频响应:', {
+      status: response.status,
+      ok: response.ok,
+      code: data.code,
+      message: data.message,
+      task_id: data.output?.task_id
+    });
 
     if (!response.ok || data.code) {
       throw new Error(`图生视频失败: ${data.message || response.statusText}`);

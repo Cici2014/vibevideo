@@ -105,8 +105,23 @@ async function generateSingleVideo(
   if (storyboard.firstFrame) {
     // 图生视频
     console.log(`[图生视频] ${storyboard.id}`);
+    
+    // 将相对路径转换为绝对路径
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!workspaceRoot) {
+      throw new Error('无法获取工作区路径');
+    }
+    
+    let firstFramePath = storyboard.firstFrame;
+    // 如果是相对路径，转换为绝对路径
+    if (!path.isAbsolute(firstFramePath)) {
+      firstFramePath = path.join(workspaceRoot, firstFramePath);
+    }
+    
+    console.log(`[图生视频] 使用首帧图片: ${firstFramePath}`);
+    
     taskId = await provider.imageToVideo(
-      storyboard.firstFrame,
+      firstFramePath,
       storyboard.description,
       { 
         duration: storyboard.duration,

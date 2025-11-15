@@ -11,13 +11,19 @@ import { Storyboard } from '../types';
 /**
  * 树节点项
  */
+export interface FirstFrameResourcePaths {
+  image?: string;
+  markdown?: string;
+}
+
 export class ResourceTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly resourceType?: 'storyboard' | 'firstFrame' | 'clip' | 'stats',
+    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'clip' | 'stats',
     public readonly resourcePath?: string,
-    public readonly quality?: 'excellent' | 'good' | 'fair' | 'needs-improvement'
+    public readonly quality?: 'excellent' | 'good' | 'fair' | 'needs-improvement',
+    public readonly relatedPaths?: FirstFrameResourcePaths
   ) {
     super(label, collapsibleState);
 
@@ -45,10 +51,27 @@ export class ResourceTreeItem extends vscode.TreeItem {
           arguments: [vscode.Uri.file(resourcePath)]
         };
       }
-    } else if (resourceType === 'firstFrame') {
+    } else if (resourceType === 'firstFrameResource') {
       this.iconPath = new vscode.ThemeIcon('file-media');
+      this.contextValue = 'firstFrame';
+      if (resourcePath) {
+        this.command = {
+          command: 'vibevideo.openFirstFrameResource',
+          title: '打开首帧资源',
+          arguments: [this]
+        };
+      }
     } else if (resourceType === 'clip') {
       this.iconPath = new vscode.ThemeIcon('play');
+      this.contextValue = 'clip';
+      // 点击视频片段时打开视频文件
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开视频',
+          arguments: [vscode.Uri.file(resourcePath)]
+        };
+      }
     } else if (resourceType === 'stats') {
       this.iconPath = new vscode.ThemeIcon('graph');
     }
@@ -196,27 +219,80 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
    * 获取初始帧列表
    */
   private async getFirstFrameItems(): Promise<ResourceTreeItem[]> {
-    const firstFramesDir = path.join(this.workspaceRoot!, 'assets', 'first-frames');
-    const files = await listFiles(firstFramesDir, '.png');
+    const firstFramesDir = path.join(this.workspaceRoot!, 'first-frames');
+    const [imageFiles, markdownFiles] = await Promise.all([
+      listFiles(firstFramesDir, '.png'),
+      listFiles(firstFramesDir, '.md')
+    ]);
 
-    if (files.length === 0) {
+    const resourceMap = new Map<
+      string,
+      {
+        displayName: string;
+        image?: string;
+        markdown?: string;
+      }
+    >();
+
+    const addFile = (file: string, type: 'image' | 'markdown') => {
+      const fileName = path.basename(file, path.extname(file));
+      const normalized = normalizeFirstFrameName(fileName);
+      const existing = resourceMap.get(normalized) || {
+        displayName: fileName
+      };
+      if (type === 'image') {
+        existing.image = file;
+        if (!existing.markdown) {
+          existing.displayName = fileName;
+        }
+      } else {
+        existing.markdown = file;
+        existing.displayName = fileName; // 优先使用描述名
+      }
+      resourceMap.set(normalized, existing);
+    };
+
+    imageFiles.forEach(file => addFile(file, 'image'));
+    markdownFiles.forEach(file => addFile(file, 'markdown'));
+
+    if (resourceMap.size === 0) {
       return [
         new ResourceTreeItem(
-          '暂无初始帧',
+          '暂无首帧资源',
           vscode.TreeItemCollapsibleState.None
         )
       ];
     }
 
-    return files.sort().map(file => {
-      const fileName = path.basename(file);
-      return new ResourceTreeItem(
-        `✓ ${fileName}`,
-        vscode.TreeItemCollapsibleState.None,
-        'firstFrame',
-        file
+    const items: ResourceTreeItem[] = [];
+    const sortedEntries = Array.from(resourceMap.entries()).sort((a, b) =>
+      a[1].displayName.localeCompare(b[1].displayName, 'zh-CN')
+    );
+
+    for (const [, entry] of sortedEntries) {
+      const markers = [
+        entry.markdown ? '📝' : '',
+        entry.image ? '🖼️' : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const label = markers ? `${entry.displayName} ${markers}` : entry.displayName;
+      items.push(
+        new ResourceTreeItem(
+          label,
+          vscode.TreeItemCollapsibleState.None,
+          'firstFrameResource',
+          entry.image ?? entry.markdown,
+          undefined,
+          {
+            image: entry.image,
+            markdown: entry.markdown
+          }
+        )
       );
-    });
+    }
+
+    return items;
   }
 
   /**
@@ -255,7 +331,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     const totalStoryboards = storyboards.length;
     const totalDuration = storyboards.reduce((sum, sb) => sum + (sb.duration || 5), 0);
     
-    const firstFramesDir = path.join(this.workspaceRoot!, 'assets', 'first-frames');
+    const firstFramesDir = path.join(this.workspaceRoot!, 'first-frames');
     const firstFrames = await listFiles(firstFramesDir, '.png');
     
     const clipsDir = path.join(this.workspaceRoot!, 'assets', 'clips');
@@ -308,5 +384,42 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     return storyboards.sort((a, b) => a.id.localeCompare(b.id));
   }
+
+  /**
+   * 根据首帧文件推导分镜路径
+   */
+  async getStoryboardPathFromFirstFrame(firstFramePath: string): Promise<string | undefined> {
+    if (!this.workspaceRoot) {
+      return undefined;
+    }
+
+    const baseName = path.basename(firstFramePath, path.extname(firstFramePath));
+    const normalized = normalizeFirstFrameName(baseName);
+    const candidates = new Set<string>([
+      baseName,
+      normalized
+    ]);
+
+    for (const candidate of candidates) {
+      if (!candidate) {
+        continue;
+      }
+      const storyboardPath = path.join(this.workspaceRoot, 'storyboards', `${candidate}.md`);
+      if (await fileExists(storyboardPath)) {
+        return storyboardPath;
+      }
+    }
+
+    return undefined;
+  }
+}
+
+function normalizeFirstFrameName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/(\.md|\.png)$/i, '')
+    .replace(/[-_]?first[-_]?frame$/i, '')
+    .replace(/[-_]?首帧$/i, '')
+    .trim();
 }
 

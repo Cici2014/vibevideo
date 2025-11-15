@@ -122,7 +122,7 @@ async function generateSingleFirstFrame(
   await pollTaskStatus(provider, taskId);
 
   // 下载图片
-  const savePath = path.join(workspaceRoot, 'assets', 'first-frames', `${storyboard.id}.png`);
+  const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
   await provider.downloadResource(taskId, savePath);
 
   // 更新分镜 Markdown 文件

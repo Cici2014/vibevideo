@@ -9,13 +9,13 @@ import { ProjectInitializer } from './core/ProjectInitializer';
 import { StoryboardParser } from './core/StoryboardParser';
 import { ConfigManager } from './core/ConfigManager';
 import { SubjectManager } from './core/SubjectManager';
-import { ResourceTreeProvider } from './ui/ResourceTreeProvider';
+import { ResourceTreeProvider, ResourceTreeItem } from './ui/ResourceTreeProvider';
 import { ProviderManager } from './providers/ProviderManager';
 import { configureVideoAI, showCurrentConfig } from './commands/configureAPI';
 import { generateAllVideos } from './commands/generateVideos';
 import { generateAllFirstFrames } from './commands/generateFirstFrames';
 import { generateAllSubjects } from './commands/generateSubjects';
-import { composeAllFirstFrames } from './commands/composeFirstFrames';
+import { composeAllFirstFrames, composeFirstFrameForStoryboard } from './commands/composeFirstFrames';
 import { getWorkspaceRoot, isVVProject } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
@@ -98,6 +98,33 @@ export function activate(context: vscode.ExtensionContext) {
     await composeAllFirstFrames(providerManager, subjectManager, resourceTreeProvider);
   });
 
+  const composeSingleFirstFrameCommand = vscode.commands.registerCommand(
+    'vibevideo.composeStoryboardFirstFrame',
+    async (item: ResourceTreeItem) => {
+      if (!providerManager || !subjectManager || !resourceTreeProvider) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      if (!item?.resourcePath) {
+        vscode.window.showErrorMessage('无法获取初始帧路径');
+        return;
+      }
+
+      const storyboardPath = await resourceTreeProvider.getStoryboardPathFromFirstFrame(item.resourcePath);
+      if (!storyboardPath) {
+        vscode.window.showErrorMessage('未找到对应的分镜脚本，命名需与首帧文件一致。');
+        return;
+      }
+
+      await composeFirstFrameForStoryboard(
+        storyboardPath,
+        providerManager,
+        subjectManager,
+        resourceTreeProvider
+      );
+    }
+  );
+
   // ===== 视频生成命令 =====
   
   const generateVideosCommand = vscode.commands.registerCommand('vibevideo.generateVideos', async () => {
@@ -114,6 +141,44 @@ export function activate(context: vscode.ExtensionContext) {
     await generateAllFirstFrames(providerManager, resourceTreeProvider);
   });
 
+  const openFirstFrameResourceCommand = vscode.commands.registerCommand(
+    'vibevideo.openFirstFrameResource',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        return;
+      }
+
+      const paths: Array<{ path: string; isMarkdown: boolean }> = [];
+      const primary = item.resourcePath;
+      if (primary) {
+        paths.push({ path: primary, isMarkdown: primary.toLowerCase().endsWith('.md') });
+      }
+      const markdownPath = item.relatedPaths?.markdown;
+      if (markdownPath && markdownPath !== primary) {
+        paths.unshift({ path: markdownPath, isMarkdown: true });
+      }
+      const imagePath = item.relatedPaths?.image;
+      if (imagePath && imagePath !== primary) {
+        paths.push({ path: imagePath, isMarkdown: imagePath.toLowerCase().endsWith('.md') });
+      }
+
+      const opened = new Set<string>();
+      for (const entry of paths) {
+        if (opened.has(entry.path)) {
+          continue;
+        }
+        opened.add(entry.path);
+        const uri = vscode.Uri.file(entry.path);
+        if (entry.isMarkdown) {
+          const doc = await vscode.workspace.openTextDocument(uri);
+          await vscode.window.showTextDocument(doc, { preview: false });
+        } else {
+          await vscode.commands.executeCommand('vscode.open', uri);
+        }
+      }
+    }
+  );
+
   // 注册所有命令
   context.subscriptions.push(
     initCommand,
@@ -124,8 +189,10 @@ export function activate(context: vscode.ExtensionContext) {
     showConfigCommand,
     generateSubjectsCommand,
     composeFirstFramesCommand,
+    composeSingleFirstFrameCommand,
     generateVideosCommand,
-    generateFirstFramesCommand
+    generateFirstFramesCommand,
+    openFirstFrameResourceCommand
   );
 
   // 如果已经是 VV 项目，自动刷新视图

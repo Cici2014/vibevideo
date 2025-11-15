@@ -10,7 +10,7 @@ import { ProviderManager } from '../providers/ProviderManager';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { Storyboard } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
-import { writeFile, readFile } from '../utils/fileSystem';
+import { writeFile, readFile, listFiles, fileExists } from '../utils/fileSystem';
 
 /**
  * 批量合成所有使用主体的分镜
@@ -56,6 +56,8 @@ export async function composeAllFirstFrames(
       return;
     }
 
+    const MAX_CONCURRENT_COMPOSE = 3;
+
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -65,31 +67,48 @@ export async function composeAllFirstFrames(
       async (progress) => {
         let successCount = 0;
         let failCount = 0;
+        let processedCount = 0;
+        let currentIndex = 0;
+        const total = storyboardsWithSubjects.length;
+        const workerCount = Math.min(MAX_CONCURRENT_COMPOSE, total);
 
-        for (let i = 0; i < storyboardsWithSubjects.length; i++) {
-          const { storyboard, subjects } = storyboardsWithSubjects[i];
-          
-          progress.report({
-            message: `正在合成 ${i + 1}/${storyboardsWithSubjects.length}: ${storyboard.title}`,
-            increment: (100 / storyboardsWithSubjects.length)
-          });
+        const worker = async () => {
+          while (true) {
+            const index = currentIndex++;
+            if (index >= total) {
+              break;
+            }
 
-          try {
-            await composeSingleFirstFrame(
-              storyboard,
-              subjects,
-              provider,
-              subjectManager,
-              parser
-            );
-            successCount++;
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.error(`合成初始帧失败: ${storyboard.id}`, errorMsg);
-            vscode.window.showErrorMessage(`合成失败 [${storyboard.title}]: ${errorMsg}`);
-            failCount++;
+            const { storyboard, subjects } = storyboardsWithSubjects[index];
+            progress.report({
+              message: `正在合成 ${index + 1}/${total}: ${storyboard.title}`
+            });
+
+            try {
+              await composeSingleFirstFrame(
+                storyboard,
+                subjects,
+                provider,
+                subjectManager,
+                parser
+              );
+              successCount++;
+            } catch (error) {
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(`合成初始帧失败: ${storyboard.id}`, errorMsg);
+              vscode.window.showErrorMessage(`合成失败 [${storyboard.title}]: ${errorMsg}`);
+              failCount++;
+            } finally {
+              processedCount++;
+              progress.report({
+                increment: 100 / total,
+                message: `已完成 ${processedCount}/${total}`
+              });
+            }
           }
-        }
+        };
+
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
         const message = `
 初始帧合成完成！
@@ -112,6 +131,56 @@ export async function composeAllFirstFrames(
 }
 
 /**
+ * 为单个分镜脚本合成首帧（来自资源树右键）
+ */
+export async function composeFirstFrameForStoryboard(
+  storyboardPath: string,
+  providerManager: ProviderManager,
+  subjectManager: SubjectManager,
+  treeProvider: ResourceTreeProvider
+): Promise<void> {
+  try {
+    const provider = await providerManager.getProvider();
+    const parser = new StoryboardParser();
+    const storyboard = await parser.parseMarkdown(storyboardPath);
+    const content = await readFile(storyboard.filePath);
+    const subjects = parser.extractSubjects(content);
+
+    if (subjects.length === 0) {
+      vscode.window.showWarningMessage(`分镜「${storyboard.title}」未配置主体，无法合成首帧。`);
+      return;
+    }
+
+    const confirm = await vscode.window.showInformationMessage(
+      `将为「${storyboard.title}」合成首帧，是否继续？`,
+      '生成',
+      '取消'
+    );
+
+    if (confirm !== '生成') {
+      return;
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: 'Vibe Video - 合成初始帧',
+        cancellable: false
+      },
+      async (progress) => {
+        progress.report({ message: `正在合成：${storyboard.title}` });
+        await composeSingleFirstFrame(storyboard, subjects, provider, subjectManager, parser);
+      }
+    );
+
+    vscode.window.showInformationMessage(`首帧已生成：${storyboard.title}`);
+    treeProvider.refresh();
+  } catch (error) {
+    vscode.window.showErrorMessage(`合成首帧失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
  * 合成单个初始帧
  */
 async function composeSingleFirstFrame(
@@ -121,7 +190,11 @@ async function composeSingleFirstFrame(
   subjectManager: SubjectManager,
   parser: StoryboardParser
 ): Promise<void> {
-  
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  if (!workspaceRoot) {
+    throw new Error('无法获取工作区路径');
+  }
+
   console.log(`[合成] ${storyboard.id}: 使用主体 ${subjectIds.join(', ')}`);
 
   let effectiveSubjectIds = subjectIds;
@@ -147,10 +220,17 @@ async function composeSingleFirstFrame(
 
   // 2. 读取分镜信息
   const content = await readFile(storyboard.filePath);
-  const scene = parser.extractScene(content) || '场景';
-  const layout = parser.extractLayout(content) || '';
   const description = storyboard.description;
-  const initialMoment = deriveInitialMoment(storyboard.firstFramePrompt, description);
+  const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
+  if (firstFrameMarkdown) {
+    const relativeMdPath = path.relative(workspaceRoot, firstFrameMarkdown.filePath).replace(/\\/g, '/');
+    console.log(`[合成] 发现首帧描述: ${relativeMdPath}`);
+  }
+  const initialMoment = deriveInitialMoment(
+    firstFrameMarkdown?.content,
+    storyboard.firstFramePrompt,
+    description
+  );
 
   // 3. 统一使用单次合成
   console.log(`[合成] 策略：直接合成（使用 ${effectiveSubjectIds.length} 个主体）`);
@@ -160,19 +240,14 @@ async function composeSingleFirstFrame(
   );
   const imageBase64Array = await imagesToBase64(subjectImagePaths);
 
-  const composePrompt = buildComposePrompt(effectiveSubjectIds, scene, layout, description, initialMoment);
-  console.log(`[合成] 提示词: ${composePrompt.substring(0, 150)}...`);
+  const composePrompt = buildComposePrompt(effectiveSubjectIds, description, initialMoment);
+  console.log(`[合成] 提示词: ${composePrompt.substring(0, 500)}...`);
 
   const result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
   const imageUrl = await resolveComposeResult(result, provider);
 
   // 4. 下载合成后的图片
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-  if (!workspaceRoot) {
-    throw new Error('无法获取工作区路径');
-  }
-
-  const savePath = path.join(workspaceRoot, 'assets', 'first-frames', `${storyboard.id}.png`);
+  const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
   
   console.log(`[合成] 下载到: ${savePath}`);
   await provider.client.downloadResource(imageUrl, savePath);
@@ -188,26 +263,17 @@ async function composeSingleFirstFrame(
  */
 function buildComposePrompt(
   subjectIds: string[],
-  scene: string,
-  layout: string,
   description: string,
   initialMoment: string
 ): string {
   const subjectList = subjectIds.map((id, i) => `图${i + 1}：${id}`).join('，');
 
-  let prompt = `请严格按照提供的主体图片构建画面，保持角色外观、比例和服装完全一致：\n\n`;
-  prompt += `重点角色（需保持外观一致）：${subjectList}\n`;
-  prompt += `场景：${scene}\n`;
-
-  if (layout) {
-    prompt += `构图：${layout}\n`;
-  }
-
-  prompt += `\n初始瞬间：${initialMoment || description}\n`;
-  prompt += `动作和氛围：${description}\n\n`;
+  let prompt = `请严格按照提供的主体图片构建画面：\n\n`;
+  prompt += `重点角色：${subjectList}\n`;
+  prompt += `\n描述：${initialMoment}\n`;
   prompt += `严格要求：\n`;
-  prompt += `1. 保持主要角色的真实比例与主体图片一致，可在背景中添加其他人物。\n`;
-  prompt += `2. 只允许调整背景、姿势、表情和光线，不要改变主要角色的发型、服装、颜色和细节。\n`;
+  prompt += `1. 保持主要角色的真实比例。\n`;
+  prompt += `2. 只允许调整背景、姿势、表情和光线，不要改变主要角色的发型。\n`;
   prompt += `3. 保持统一的美术风格、光线方向和渲染质量。\n`;
   prompt += `4. 画面中禁止出现任何文字、字幕、Logo 或水印。\n`;
   prompt += `5. 镜头为单一画面，禁止多场景拼接、分屏或插画边框。`;
@@ -250,7 +316,16 @@ function buildSecondBatchPrompt(
 /**
  * 从首帧提示或描述中提取初始瞬间
  */
-function deriveInitialMoment(firstFramePrompt: string | undefined, description: string): string {
+function deriveInitialMoment(
+  firstFrameMarkdown: string | undefined,
+  firstFramePrompt: string | undefined,
+  description: string
+): string {
+  const normalizedMarkdown = normalizeFirstFrameMarkdown(firstFrameMarkdown);
+  if (normalizedMarkdown) {
+    return normalizedMarkdown;
+  }
+
   if (firstFramePrompt && firstFramePrompt.trim().length >= 12) {
     return firstFramePrompt.trim();
   }
@@ -268,6 +343,97 @@ function deriveInitialMoment(firstFramePrompt: string | undefined, description: 
   const initial = sentences.slice(0, 2).join('').trim();
 
   return initial || normalized;
+}
+
+interface FirstFrameMarkdown {
+  content: string;
+  filePath: string;
+}
+
+const firstFrameMarkdownCache = new Map<string, FirstFrameMarkdown | null>();
+
+async function loadFirstFrameMarkdown(
+  storyboardId: string,
+  workspaceRoot?: string
+): Promise<FirstFrameMarkdown | undefined> {
+  if (firstFrameMarkdownCache.has(storyboardId)) {
+    const cached = firstFrameMarkdownCache.get(storyboardId);
+    return cached ?? undefined;
+  }
+
+  const root = workspaceRoot || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) {
+    firstFrameMarkdownCache.set(storyboardId, null);
+    return undefined;
+  }
+
+  const firstFramesDir = path.join(root, 'first-frames');
+  if (!(await fileExists(firstFramesDir))) {
+    firstFrameMarkdownCache.set(storyboardId, null);
+    return undefined;
+  }
+
+  const candidateFiles = [
+    path.join(firstFramesDir, `${storyboardId}.md`),
+    path.join(firstFramesDir, `${storyboardId}-first-frame.md`),
+    path.join(firstFramesDir, `${storyboardId}_first_frame.md`),
+    path.join(firstFramesDir, `${storyboardId}-首帧.md`)
+  ];
+
+  for (const candidate of candidateFiles) {
+    if (await fileExists(candidate)) {
+      const content = await readFile(candidate);
+      const data = { content, filePath: candidate };
+      firstFrameMarkdownCache.set(storyboardId, data);
+      return data;
+    }
+  }
+
+  const markdownFiles = await listFiles(firstFramesDir, '.md');
+  const normalizedId = storyboardId.toLowerCase();
+  const fallbackPath = markdownFiles.find(file => {
+    const base = path.basename(file, '.md').toLowerCase();
+    return (
+      base === normalizedId ||
+      base.startsWith(`${normalizedId}-`) ||
+      base.endsWith(`-${normalizedId}`) ||
+      base.includes(`${normalizedId}-first`) ||
+      base.includes(`${normalizedId}_first`)
+    );
+  });
+
+  if (fallbackPath) {
+    const content = await readFile(fallbackPath);
+    const data = { content, filePath: fallbackPath };
+    firstFrameMarkdownCache.set(storyboardId, data);
+    return data;
+  }
+
+  firstFrameMarkdownCache.set(storyboardId, null);
+  return undefined;
+}
+
+function normalizeFirstFrameMarkdown(content?: string): string | undefined {
+  if (!content) {
+    return undefined;
+  }
+
+  const cleaned = content
+    .replace(/\r/g, '')
+    .replace(/^---[\s\S]*?---/gm, '')
+    .split('\n')
+    .map(line =>
+      line
+        .replace(/^[#>\s]*/g, '')
+        .replace(/^[-*]\s*/, '')
+        .replace(/^\d+\.\s*/, '')
+        .replace(/\*\*/g, '')
+        .trim()
+    )
+    .filter(Boolean)
+    .join(' ');
+
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 /**

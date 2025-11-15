@@ -4,8 +4,10 @@
  */
 
 import * as fs from 'fs';
+import * as path from 'path';
 import { VideoAIProvider, VideoOptions, ImageOptions, TaskStatus, TongyiConfig } from './types';
 import { BailianAPIClient } from './BailianAPIClient';
+import { imageToBase64 } from '../utils/imageEncoder';
 
 export class TongyiWanxiangProvider implements VideoAIProvider {
   readonly name = '通义万相';
@@ -33,14 +35,24 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
   async imageToVideo(imagePath: string, prompt: string, options?: VideoOptions): Promise<string> {
     console.log('[通义万相] 图生视频请求:', { imagePath, prompt });
 
-    // 百炼 API 需要图片 URL，我们需要先上传或使用 OSS
-    // 临时方案：抛出友好提示
-    // TODO: 实现图片上传到 OSS，或使用 base64 URL
-    throw new Error('图生视频需要图片 URL，暂不支持本地图片。请先实现图片上传功能。');
+    // 检查文件是否存在
+    if (!fs.existsSync(imagePath)) {
+      throw new Error(`图片文件不存在: ${imagePath}`);
+    }
+
+    // 将本地图片转换为 base64 data URL
+    const imageBase64 = await imageToBase64(imagePath);
+    console.log('[通义万相] 图片已转换为 base64，大小:', imageBase64.length, '字符');
+
+    // 调用 API，使用 base64 格式的图片
+    // 注意：API 不支持自定义 duration 参数，使用默认时长
+    const resolution = options?.resolution || '1080P';
+    return await this.client.imageToVideo(imageBase64, prompt, resolution);
   }
 
   /**
    * 纯文生视频（无首帧）
+   * 注意：API 不支持自定义 duration 参数，使用默认时长
    */
   async textToVideo(prompt: string, options?: VideoOptions): Promise<string> {
     console.log('[通义万相] 文生视频请求:', { prompt, resolution: options?.resolution });

@@ -52,10 +52,10 @@ export class ProjectInitializer {
       'subjects',                  // 主体/角色目录
       'storyboards',
       'assets',
-      'assets/first-frames',
       'assets/clips',
       'assets/audio',
       'assets/references',
+      'first-frames',
       'output',
       '.vv-context'
     ];
@@ -96,7 +96,7 @@ export class ProjectInitializer {
 # Vibe Video
 .vv-secrets.json
 assets/clips/*.mp4
-assets/first-frames/*.png
+first-frames/*.png
 output/*.mp4
 `;
 

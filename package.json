@@ -68,6 +68,17 @@
         "title": "Vibe Video: Compose All First Frames",
         "category": "Vibe Video",
         "icon": "$(combine)"
+      },
+      {
+        "command": "vibevideo.composeStoryboardFirstFrame",
+        "title": "Vibe Video: Compose First Frame",
+        "category": "Vibe Video",
+        "icon": "$(file-media)"
+      },
+      {
+        "command": "vibevideo.openFirstFrameResource",
+        "title": "Vibe Video: Open First Frame Resource",
+        "category": "Vibe Video"
       }
     ],
     "viewsContainers": {
@@ -93,6 +104,13 @@
           "command": "vibevideo.refreshResources",
           "when": "view == vvResources",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vibevideo.composeStoryboardFirstFrame",
+          "when": "view == vvResources && viewItem == firstFrame",
+          "group": "inline"
         }
       ]
     },
