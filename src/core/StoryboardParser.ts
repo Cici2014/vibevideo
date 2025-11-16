@@ -21,6 +21,7 @@ export class StoryboardParser {
     const duration = this.extractDuration(content);
     const firstFrame = this.extractFirstFrame(content);
     const firstFramePrompt = this.extractFirstFramePrompt(content);
+    const referenceImages = this.extractReferenceImages(content);
 
     // 提取描述
     const description = this.extractDescription(content);
@@ -32,6 +33,7 @@ export class StoryboardParser {
       duration,
       firstFrame,
       firstFramePrompt,
+      referenceImages,
       filePath
     };
   }
@@ -104,6 +106,33 @@ export class StoryboardParser {
   }
 
   /**
+   * 提取参考图路径（支持多张，逗号分隔）
+   */
+  private extractReferenceImages(content: string): string[] | undefined {
+    const patterns = [
+      /[*-]\s*\*?\*?参考图\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?参考图片\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?referenceImage\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?referenceImages\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?ref-img\*?\*?[：:]\s*(.+)$/im,
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        // 分割多个路径（支持逗号、中文逗号、空格分隔）
+        const paths = match[1]
+          .split(/[,，\s]+/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+        return paths.length > 0 ? paths : undefined;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * 提取描述（正文内容，去掉标题和元数据）
    */
   private extractDescription(content: string): string {
@@ -121,6 +150,8 @@ export class StoryboardParser {
     // 去掉方括号标记
     result = result.replace(/\[首帧[：:].*\]/gi, '');
     result = result.replace(/\[生成首帧[：:].*\]/gi, '');
+    result = result.replace(/\[参考图[：:].*\]/gi, '');
+    result = result.replace(/\[参考图片[：:].*\]/gi, '');
 
     // 清理空行，保留段落结构
     result = result.trim();

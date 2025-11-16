@@ -58,8 +58,20 @@
         "icon": "$(play)"
       },
       {
+        "command": "vibevideo.generateSingleVideo",
+        "title": "生成视频",
+        "category": "Vibe Video",
+        "icon": "$(play)"
+      },
+      {
         "command": "vibevideo.generateSubjects",
         "title": "Vibe Video: Generate All Subjects",
+        "category": "Vibe Video",
+        "icon": "$(account)"
+      },
+      {
+        "command": "vibevideo.generateSingleSubject",
+        "title": "生成主体",
         "category": "Vibe Video",
         "icon": "$(account)"
       },
@@ -107,9 +119,24 @@
         }
       ],
       "view/item/context": [
+          {
+            "command": "vibevideo.generateVideos",
+            "when": "view == vvResources && viewItem == clipsRoot",
+            "group": "inline"
+          },
         {
           "command": "vibevideo.composeStoryboardFirstFrame",
           "when": "view == vvResources && viewItem == firstFrame",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateSingleSubject",
+          "when": "view == vvResources && viewItem == subject",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateSingleVideo",
+          "when": "view == vvResources && viewItem == clip",
           "group": "inline"
         }
       ]

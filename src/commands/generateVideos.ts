@@ -7,6 +7,8 @@ import * as path from 'path';
 import { ProviderManager } from '../providers/ProviderManager';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { Storyboard } from '../types';
+import { StoryboardParser } from '../core/StoryboardParser';
+import { fileExists } from '../utils/fileSystem';
 
 /**
  * 批量生成所有视频
@@ -186,5 +188,81 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
   }
 
   throw new Error('生成超时（超过 30 分钟）');
+}
+
+/**
+ * 从视频片段生成单个视频（由右键菜单触发）
+ */
+export async function generateSingleVideoFromClip(
+  clipPath: string,
+  providerManager: ProviderManager,
+  treeProvider: ResourceTreeProvider
+): Promise<void> {
+  try {
+    const provider = await providerManager.getProvider();
+    
+    // 从视频片段路径找到对应的分镜脚本
+    const storyboardPath = await treeProvider.getStoryboardPathFromClip(clipPath);
+    if (!storyboardPath) {
+      const clipName = path.basename(clipPath);
+      vscode.window.showErrorMessage(
+        `未找到对应的分镜脚本。视频片段文件名应为：${path.basename(clipPath, '.mp4')}.mp4，对应的分镜脚本应为：storyboards/${path.basename(clipPath, '.mp4')}.md`
+      );
+      return;
+    }
+
+    // 解析分镜脚本
+    const parser = new StoryboardParser();
+    const storyboard = await parser.parseMarkdown(storyboardPath);
+
+    if (!storyboard.description || storyboard.description.length < 20) {
+      vscode.window.showErrorMessage(
+        `分镜描述太短或为空。请编辑 ${storyboardPath} 添加详细描述。`
+      );
+      return;
+    }
+
+    // 检查视频是否已存在
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!workspaceRoot) {
+      throw new Error('无法获取工作区路径');
+    }
+    const expectedClipPath = path.join(workspaceRoot, 'assets', 'clips', `${storyboard.id}.mp4`);
+    const clipExists = await fileExists(expectedClipPath);
+
+    // 如果视频已存在，提示用户这是重新生成
+    if (clipExists) {
+      const confirm = await vscode.window.showWarningMessage(
+        `视频片段「${storyboard.title || storyboard.id}」已存在，重新生成将覆盖现有视频。是否继续？`,
+        '重新生成',
+        '取消'
+      );
+
+      if (confirm !== '重新生成') {
+        return;
+      }
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: clipExists ? `重新生成视频: ${storyboard.title || storyboard.id}` : `生成视频: ${storyboard.title || storyboard.id}`,
+        cancellable: false
+      },
+      async (progress) => {
+        progress.report({ message: '正在生成...' });
+        await generateSingleVideo(storyboard, provider);
+        const message = clipExists 
+          ? `✓ 视频重新生成完成: ${storyboard.title || storyboard.id}`
+          : `✓ 视频生成完成: ${storyboard.title || storyboard.id}`;
+        vscode.window.showInformationMessage(message);
+        
+        // 刷新资源树
+        treeProvider.refresh();
+      }
+    );
+  } catch (error) {
+    vscode.window.showErrorMessage(`生成视频失败: ${error}`);
+  }
 }
 

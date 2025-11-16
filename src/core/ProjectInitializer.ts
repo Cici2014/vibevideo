@@ -51,6 +51,7 @@ export class ProjectInitializer {
     const dirs = [
       'subjects',                  // 主体/角色目录
       'storyboards',
+      'ref-img',                   // 参考图目录（用于生成首帧）
       'assets',
       'assets/clips',
       'assets/audio',
@@ -159,63 +160,7 @@ output/*.mp4
    * 创建示例主体文件
    */
   private async createExampleSubjects(rootPath: string): Promise<void> {
-    const subjectsDir = path.join(rootPath, 'subjects');
-
-    // 创建 README
-    const readmeContent = `# 主体库
-
-这个目录用于存放主体/角色的定义和图片。
-
-## 如何使用
-
-### 1. 定义主体
-创建一个 Markdown 文件（如 \`猪大哥.md\`），写入详细描述：
-
-\`\`\`markdown
-# 猪大哥
-
-一只可爱的粉色小猪，戴着红色帽子，穿蓝色背心。
-3D卡通风格，圆润的体型，大大的眼睛，友善的表情。
-站立姿势，全身照，白色背景。
-\`\`\`
-
-### 2. 生成主体图
-右键点击 .md 文件 → "生成主体图片"
-或运行命令："Vibe Video: Generate All Subjects"
-
-### 3. 在分镜中引用
-\`\`\`markdown
-# 01-草地玩耍
-
-- **主体**: 猪大哥, 猪二哥, 猪小弟
-- **场景**: 绿色草地，阳光明媚
-- **构图**: 猪大哥在前跑，其他在后追
-
-三只小猪在草地上玩耍...
-\`\`\`
-
-### 4. 合成初始帧
-运行命令："Vibe Video: Compose All First Frames"
-系统会自动将主体放入场景中。
-
-## 提示
-
-- 主体描述要详细（外观、服装、风格、姿势）
-- 建议使用白色背景（便于合成）
-- 强调风格一致性（如"3D卡通风格"）
-- 可以多次生成，直到满意
-`;
-    
-    await writeFile(path.join(subjectsDir, 'README.md'), readmeContent);
-
-    // 创建示例主体（可选）
-    const exampleSubject = `# 示例主体
-
-一个现代风格的咖啡杯，白色陶瓷材质，简约设计。
-写实风格，柔和的光线，白色背景，45度角视角。
-`;
-    
-    await writeFile(path.join(subjectsDir, '示例主体.md'), exampleSubject);
+    // 不再自动生成 README.md
   }
 
   /**

@@ -79,3 +79,12 @@ export async function isVVProject(rootPath: string): Promise<boolean> {
   return await fileExists(configPath);
 }
 
+/**
+ * 复制文件
+ */
+export async function copyFile(sourcePath: string, targetPath: string): Promise<void> {
+  const targetDir = path.dirname(targetPath);
+  await ensureDir(targetDir);
+  await fs.promises.copyFile(sourcePath, targetPath);
+}
+

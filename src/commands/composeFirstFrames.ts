@@ -205,20 +205,7 @@ async function composeSingleFirstFrame(
     vscode.window.showWarningMessage(warningMessage);
   }
 
-  // 1. 检查所有主体图片是否存在
-  const missingSubjects: string[] = [];
-  for (const subjectId of effectiveSubjectIds) {
-    const exists = await subjectManager.subjectExists(subjectId);
-    if (!exists) {
-      missingSubjects.push(subjectId);
-    }
-  }
-
-  if (missingSubjects.length > 0) {
-    throw new Error(`主体图片不存在: ${missingSubjects.join(', ')}。请先生成这些主体。`);
-  }
-
-  // 2. 读取分镜信息
+  // 1. 先读取首帧描述，检查是否有参考图片
   const content = await readFile(storyboard.filePath);
   const description = storyboard.description;
   const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
@@ -226,6 +213,28 @@ async function composeSingleFirstFrame(
     const relativeMdPath = path.relative(workspaceRoot, firstFrameMarkdown.filePath).replace(/\\/g, '/');
     console.log(`[合成] 发现首帧描述: ${relativeMdPath}`);
   }
+  
+  // 1.1 检查首帧描述 Markdown 中是否有参考图片
+  const referenceImagePaths = extractReferenceImagesFromFirstFrameMarkdown(
+    firstFrameMarkdown?.content,
+    workspaceRoot
+  );
+
+  // 2. 如果没有参考图片，才检查主体图片是否存在
+  if (!referenceImagePaths || referenceImagePaths.length === 0) {
+    const missingSubjects: string[] = [];
+    for (const subjectId of effectiveSubjectIds) {
+      const exists = await subjectManager.subjectExists(subjectId);
+      if (!exists) {
+        missingSubjects.push(subjectId);
+      }
+    }
+
+    if (missingSubjects.length > 0) {
+      throw new Error(`主体图片不存在: ${missingSubjects.join(', ')}。请先生成这些主体，或在首帧描述中提供参考图片。`);
+    }
+  }
+
   const initialMoment = deriveInitialMoment(
     firstFrameMarkdown?.content,
     storyboard.firstFramePrompt,
@@ -233,14 +242,37 @@ async function composeSingleFirstFrame(
   );
 
   // 3. 统一使用单次合成
-  console.log(`[合成] 策略：直接合成（使用 ${effectiveSubjectIds.length} 个主体）`);
+  let imageBase64Array: string[];
+  let imageSourceType: string;
 
-  const subjectImagePaths = effectiveSubjectIds.map(id =>
-    subjectManager.getSubjectImagePath(id)
-  );
-  const imageBase64Array = await imagesToBase64(subjectImagePaths);
+  if (referenceImagePaths && referenceImagePaths.length > 0) {
+    // 使用参考图片（支持多张）
+    for (const refPath of referenceImagePaths) {
+      if (!(await fileExists(refPath))) {
+        throw new Error(`参考图片不存在: ${refPath}`);
+      }
+    }
+    const relativePaths = referenceImagePaths.map(p => 
+      path.relative(workspaceRoot, p).replace(/\\/g, '/')
+    );
+    console.log(`[合成] 策略：使用 ${referenceImagePaths.length} 张参考图片`);
+    console.log(`[合成] 参考图: ${relativePaths.join(', ')}`);
+    imageBase64Array = await imagesToBase64(referenceImagePaths);
+    imageSourceType = `${referenceImagePaths.length} 张参考图片`;
+  } else {
+    // 使用主体图片
+    console.log(`[合成] 策略：直接合成（使用 ${effectiveSubjectIds.length} 个主体）`);
+    const subjectImagePaths = effectiveSubjectIds.map(id =>
+      subjectManager.getSubjectImagePath(id)
+    );
+    imageBase64Array = await imagesToBase64(subjectImagePaths);
+    imageSourceType = `${effectiveSubjectIds.length} 个主体`;
+  }
 
-  const composePrompt = buildComposePrompt(effectiveSubjectIds, description, initialMoment);
+  const composePrompt = (referenceImagePaths && referenceImagePaths.length > 0)
+    ? buildComposePromptWithReferenceImage(description, initialMoment, referenceImagePaths.length)
+    : buildComposePrompt(effectiveSubjectIds, description, initialMoment);
+  console.log(`[合成] 图片来源: ${imageSourceType}`);
   console.log(`[合成] 提示词: ${composePrompt.substring(0, 500)}...`);
 
   const result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
@@ -274,6 +306,31 @@ function buildComposePrompt(
   prompt += `严格要求：\n`;
   prompt += `1. 保持主要角色的真实比例。\n`;
   prompt += `2. 只允许调整背景、姿势、表情和光线，不要改变主要角色的发型。\n`;
+  prompt += `3. 保持统一的美术风格、光线方向和渲染质量。\n`;
+  prompt += `4. 画面中禁止出现任何文字、字幕、Logo 或水印。\n`;
+  prompt += `5. 镜头为单一画面，禁止多场景拼接、分屏或插画边框。`;
+
+  return prompt;
+}
+
+/**
+ * 构建使用参考图片的合成提示词（支持多张参考图）
+ */
+function buildComposePromptWithReferenceImage(
+  description: string,
+  initialMoment: string,
+  imageCount: number = 1
+): string {
+  let prompt = `请参考提供的${imageCount > 1 ? '多张' : ''}参考图片，生成符合以下描述的图像：\n\n`;
+  prompt += `描述：${initialMoment}\n`;
+  prompt += `\n严格要求：\n`;
+  if (imageCount > 1) {
+    prompt += `1. 综合参考所有图片的风格、色调和整体氛围。\n`;
+    prompt += `2. 可以根据描述调整画面内容、构图和细节，融合多张参考图的优点。\n`;
+  } else {
+    prompt += `1. 保持参考图的风格、色调和整体氛围。\n`;
+    prompt += `2. 可以根据描述调整画面内容、构图和细节。\n`;
+  }
   prompt += `3. 保持统一的美术风格、光线方向和渲染质量。\n`;
   prompt += `4. 画面中禁止出现任何文字、字幕、Logo 或水印。\n`;
   prompt += `5. 镜头为单一画面，禁止多场景拼接、分屏或插画边框。`;
@@ -434,6 +491,49 @@ function normalizeFirstFrameMarkdown(content?: string): string | undefined {
     .join(' ');
 
   return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/**
+ * 从首帧描述 Markdown 中提取参考图片路径（支持多张，逗号分隔）
+ */
+function extractReferenceImagesFromFirstFrameMarkdown(
+  content: string | undefined,
+  workspaceRoot: string
+): string[] | undefined {
+  if (!content) {
+    return undefined;
+  }
+
+  const patterns = [
+    /[*-]\s*\*?\*?参考图片\*?\*?[：:]\s*(.+)$/im,
+    /[*-]\s*\*?\*?参考图\*?\*?[：:]\s*(.+)$/im,
+    /[*-]\s*\*?\*?referenceImage\*?\*?[：:]\s*(.+)$/im,
+    /[*-]\s*\*?\*?referenceImages\*?\*?[：:]\s*(.+)$/im,
+    /[*-]\s*\*?\*?ref-img\*?\*?[：:]\s*(.+)$/im,
+  ];
+
+  for (const pattern of patterns) {
+    const match = content.match(pattern);
+    if (match) {
+      // 分割多个路径（支持逗号、中文逗号、空格分隔）
+      const imagePaths = match[1]
+        .split(/[,，\s]+/)
+        .map(s => s.trim())
+        .filter(s => s.length > 0)
+        .map(imagePath => {
+          // 如果是绝对路径，直接返回
+          if (path.isAbsolute(imagePath)) {
+            return imagePath;
+          }
+          // 如果是相对路径，相对于工作区根目录解析
+          return path.join(workspaceRoot, imagePath);
+        });
+      
+      return imagePaths.length > 0 ? imagePaths : undefined;
+    }
+  }
+
+  return undefined;
 }
 
 /**
