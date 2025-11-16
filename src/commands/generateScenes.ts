@@ -1,53 +1,53 @@
 /**
- * 生成主体图命令
+ * 生成场景图命令
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { SubjectManager } from '../core/SubjectManager';
+import { SceneManager } from '../core/SceneManager';
 import { ProviderManager } from '../providers/ProviderManager';
-import { Subject } from '../types';
+import { Scene } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
 /**
- * 生成所有主体图
+ * 生成所有场景图
  */
-export async function generateAllSubjects(
+export async function generateAllScenes(
   providerManager: ProviderManager,
-  subjectManager: SubjectManager
+  sceneManager: SceneManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
     
-    // 获取所有主体（包括已存在的）
-    const allSubjects = await subjectManager.discoverSubjects();
-    const subjectsToGenerate = allSubjects.filter(s => s.prompt.length > 0);
-    const existingSubjects = subjectsToGenerate.filter(s => s.exists);
-    const newSubjects = subjectsToGenerate.filter(s => !s.exists);
+    // 获取所有场景（包括已存在的）
+    const allScenes = await sceneManager.discoverScenes();
+    const scenesToGenerate = allScenes.filter(s => s.prompt.length > 0);
+    const existingScenes = scenesToGenerate.filter(s => s.exists);
+    const newScenes = scenesToGenerate.filter(s => !s.exists);
 
-    if (subjectsToGenerate.length === 0) {
+    if (scenesToGenerate.length === 0) {
       vscode.window.showInformationMessage(
-        '没有可生成的主体！\n\n提示：在 subjects/ 目录创建 .md 文件来定义新主体。'
+        '没有可生成的场景！\n\n提示：在 scenes/ 目录创建 .md 文件来定义新场景。'
       );
       return;
     }
 
-    // 如果有已存在的主体，提醒用户这是重新生成
+    // 如果有已存在的场景，提醒用户这是重新生成
     let confirmMessage: string;
     let confirmButton: string;
     
-    if (existingSubjects.length > 0 && newSubjects.length > 0) {
+    if (existingScenes.length > 0 && newScenes.length > 0) {
       // 部分已存在，部分需要生成
-      confirmMessage = `将生成 ${subjectsToGenerate.length} 个主体图片（其中 ${existingSubjects.length} 个将重新生成，${newSubjects.length} 个为新生成），预计需要 ${Math.ceil(subjectsToGenerate.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
+      confirmMessage = `将生成 ${scenesToGenerate.length} 个场景图片（其中 ${existingScenes.length} 个将重新生成，${newScenes.length} 个为新生成），预计需要 ${Math.ceil(scenesToGenerate.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
       confirmButton = '继续生成';
-    } else if (existingSubjects.length > 0) {
-      // 所有主体都已存在，这是重新生成
-      confirmMessage = `所有主体都已生成。将重新生成 ${existingSubjects.length} 个主体图片，预计需要 ${Math.ceil(existingSubjects.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
+    } else if (existingScenes.length > 0) {
+      // 所有场景都已存在，这是重新生成
+      confirmMessage = `所有场景都已生成。将重新生成 ${existingScenes.length} 个场景图片，预计需要 ${Math.ceil(existingScenes.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
       confirmButton = '重新生成';
     } else {
       // 所有都是新生成
-      confirmMessage = `将生成 ${newSubjects.length} 个主体图片，预计需要 ${Math.ceil(newSubjects.length * 0.5)} 分钟。是否继续？`;
+      confirmMessage = `将生成 ${newScenes.length} 个场景图片，预计需要 ${Math.ceil(newScenes.length * 0.5)} 分钟。是否继续？`;
       confirmButton = '继续';
     }
 
@@ -64,7 +64,7 @@ export async function generateAllSubjects(
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: existingSubjects.length > 0 ? 'Vibe Video - 重新生成主体' : 'Vibe Video - 生成主体',
+        title: existingScenes.length > 0 ? 'Vibe Video - 重新生成场景' : 'Vibe Video - 生成场景',
         cancellable: true
       },
       async (progress, token) => {
@@ -77,8 +77,8 @@ export async function generateAllSubjects(
         const MAX_CONCURRENT = 3;
         const runningTasks = new Set<Promise<void>>();
 
-        // 为每个主体创建任务
-        for (let i = 0; i < subjectsToGenerate.length; i++) {
+        // 为每个场景创建任务
+        for (let i = 0; i < scenesToGenerate.length; i++) {
           // 检查是否已取消
           if (token.isCancellationRequested) {
             cancelled = true;
@@ -86,7 +86,7 @@ export async function generateAllSubjects(
             break;
           }
 
-          const subject = subjectsToGenerate[i];
+          const scene = scenesToGenerate[i];
           
           // 创建任务 Promise
           const taskPromise = (async () => {
@@ -96,13 +96,13 @@ export async function generateAllSubjects(
                 return;
               }
 
-              const actionText = subject.exists ? '重新生成' : '生成';
+              const actionText = scene.exists ? '重新生成' : '生成';
               progress.report({
-                message: `正在${actionText} ${i + 1}/${subjectsToGenerate.length}: ${subject.name}`,
+                message: `正在${actionText} ${i + 1}/${scenesToGenerate.length}: ${scene.name}`,
                 increment: 0
               });
 
-              await generateSingleSubject(subject, provider);
+              await generateSingleScene(scene, provider);
               successCount++;
             } catch (error) {
               // 如果是取消错误，不记录为失败
@@ -110,15 +110,15 @@ export async function generateAllSubjects(
                 return;
               }
               const errorMsg = error instanceof Error ? error.message : String(error);
-              console.error(`生成主体失败: ${subject.id}`, errorMsg);
-              vscode.window.showErrorMessage(`生成失败 [${subject.name}]: ${errorMsg}`);
+              console.error(`生成场景失败: ${scene.id}`, errorMsg);
+              vscode.window.showErrorMessage(`生成失败 [${scene.name}]: ${errorMsg}`);
               failCount++;
             } finally {
               completedCount++;
               if (!token.isCancellationRequested) {
                 progress.report({
-                  message: `已完成 ${completedCount}/${subjectsToGenerate.length} (成功: ${successCount}, 失败: ${failCount})`,
-                  increment: (100 / subjectsToGenerate.length)
+                  message: `已完成 ${completedCount}/${scenesToGenerate.length} (成功: ${successCount}, 失败: ${failCount})`,
+                  increment: (100 / scenesToGenerate.length)
                 });
               }
             }
@@ -150,17 +150,17 @@ export async function generateAllSubjects(
         }
 
         if (cancelled) {
-          const actionText = existingSubjects.length > 0 ? '重新生成' : '生成';
+          const actionText = existingScenes.length > 0 ? '重新生成' : '生成';
           const message = `
-主体${actionText}已取消
+场景${actionText}已取消
 ✓ 已完成: ${successCount}
 ✗ 失败: ${failCount}
           `;
           vscode.window.showWarningMessage(message);
         } else {
-          const actionText = existingSubjects.length > 0 ? '重新生成' : '生成';
+          const actionText = existingScenes.length > 0 ? '重新生成' : '生成';
           const message = `
-主体${actionText}完成！
+场景${actionText}完成！
 ✓ 成功: ${successCount}
 ✗ 失败: ${failCount}
           `;
@@ -174,18 +174,18 @@ export async function generateAllSubjects(
       }
     );
   } catch (error) {
-    vscode.window.showErrorMessage(`生成主体失败: ${error}`);
+    vscode.window.showErrorMessage(`生成场景失败: ${error}`);
   }
 }
 
 /**
- * 生成单个主体图
+ * 生成单个场景图
  */
-async function generateSingleSubject(
-  subject: Subject,
+async function generateSingleScene(
+  scene: Scene,
   provider: any
 ): Promise<void> {
-  console.log(`[主体生成] ${subject.id}: ${subject.prompt.substring(0, 50)}...`);
+  console.log(`[场景生成] ${scene.id}: ${scene.prompt.substring(0, 50)}...`);
 
   // 获取工作区根目录
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -193,39 +193,39 @@ async function generateSingleSubject(
     throw new Error('无法获取工作区路径');
   }
 
-  // 增强提示词：确保只生成主体，背景纯白，无其他物品
+  // 增强提示词：生成场景图片
   const enhancedPrompt = `## 任务
-生成主体图片。
+生成场景图片。
 
 ## 输入
-- 主体描述：${subject.prompt}
+- 场景描述：${scene.prompt}
 
 ## 要求
 ### 必须遵守
-1. 只生成主体本身（角色或物体）
-2. 背景必须是纯白色（#FFFFFF）
-3. 画面中不能有任何其他物品、道具、装饰或背景元素
-4. 主体应该完整、清晰，便于后续合成`;
+1. 生成完整的场景画面，包含背景、环境、氛围
+2. 画面中禁止出现任何文字、字幕、Logo 或水印
+3. 输出尺寸为 1280x720，适合视频场景
+4. 保持统一的美术风格和渲染质量`;
 
   let taskId: string;
 
   // 检查是否有参考图
-  if (subject.referenceImages && subject.referenceImages.length > 0) {
+  if (scene.referenceImages && scene.referenceImages.length > 0) {
     // 使用参考图生成
     const referenceImagePaths: string[] = [];
     
-    for (const refImage of subject.referenceImages) {
+    for (const refImage of scene.referenceImages) {
       let imagePath: string;
       if (path.isAbsolute(refImage)) {
         imagePath = refImage;
       } else {
-        // 相对路径：相对于工作区根目录或主体文件所在目录
+        // 相对路径：相对于工作区根目录或场景文件所在目录
         if (refImage.startsWith('ref-img/') || refImage.startsWith('ref-img\\')) {
           imagePath = path.join(workspaceRoot, refImage);
         } else {
-          // 相对于主体文件所在目录
-          const subjectDir = path.dirname(subject.mdPath);
-          imagePath = path.join(subjectDir, refImage);
+          // 相对于场景文件所在目录
+          const sceneDir = path.dirname(scene.mdPath);
+          imagePath = path.join(sceneDir, refImage);
         }
       }
       
@@ -235,8 +235,8 @@ async function generateSingleSubject(
       referenceImagePaths.push(imagePath);
     }
 
-    console.log(`[主体生成] ${subject.id}: 使用 ${referenceImagePaths.length} 张参考图`);
-    console.log(`[主体生成] 参考图: ${referenceImagePaths.map(p => path.relative(workspaceRoot, p)).join(', ')}`);
+    console.log(`[场景生成] ${scene.id}: 使用 ${referenceImagePaths.length} 张参考图`);
+    console.log(`[场景生成] 参考图: ${referenceImagePaths.map(p => path.relative(workspaceRoot, p)).join(', ')}`);
 
     // 转换为 base64
     const imageBase64Array = await imagesToBase64(referenceImagePaths);
@@ -245,7 +245,7 @@ async function generateSingleSubject(
     const composePrompt = `${enhancedPrompt}
 
 ## 参考图片
-请参考提供的图片，生成符合描述的主体图片。`;
+请参考提供的图片，生成符合描述的场景图片。`;
 
     // 调用多图合成 API
     const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
@@ -253,9 +253,9 @@ async function generateSingleSubject(
     // 多图合成 API 可能返回 URL 或 taskId
     if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {
       // 直接是 URL，直接下载
-      console.log(`[主体] 直接下载: ${resultUrl}`);
-      await provider.client.downloadResource(resultUrl, subject.imagePath);
-      console.log(`✓ 主体生成完成: ${subject.id}`);
+      console.log(`[场景] 直接下载: ${resultUrl}`);
+      await provider.client.downloadResource(resultUrl, scene.imagePath);
+      console.log(`✓ 场景生成完成: ${scene.id}`);
       return;
     } else {
       // 是 taskId，需要轮询
@@ -264,21 +264,21 @@ async function generateSingleSubject(
   } else {
     // 使用文生图 API
     taskId = await provider.textToImage(enhancedPrompt, {
-      size: '1024*1024',  // 主体图用方形，便于合成
+      size: '1280*720',  // 场景图用视频尺寸
       style: 'realistic'
     });
   }
 
-  console.log(`[主体] 任务创建: ${taskId}`);
+  console.log(`[场景] 任务创建: ${taskId}`);
 
   // 轮询任务状态
   await pollTaskStatus(provider, taskId);
 
   // 下载图片
-  console.log(`[主体] 下载到: ${subject.imagePath}`);
-  await provider.downloadResource(taskId, subject.imagePath);
+  console.log(`[场景] 下载到: ${scene.imagePath}`);
+  await provider.downloadResource(taskId, scene.imagePath);
 
-  console.log(`✓ 主体生成完成: ${subject.id}`);
+  console.log(`✓ 场景生成完成: ${scene.id}`);
 }
 
 /**
@@ -297,7 +297,7 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
 
     if (status.status === 'failed') {
       const errorMsg = status.error || '任务失败';
-      console.error(`[主体] 任务失败:`, errorMsg);
+      console.error(`[场景] 任务失败:`, errorMsg);
       throw new Error(`生成失败: ${errorMsg}`);
     }
 
@@ -309,33 +309,33 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
 }
 
 /**
- * 生成单个主体（由右键菜单触发）
+ * 生成单个场景（由右键菜单触发）
  */
-export async function generateSingleSubjectCommand(
-  subjectId: string,
+export async function generateSingleSceneCommand(
+  sceneId: string,
   providerManager: ProviderManager,
-  subjectManager: SubjectManager
+  sceneManager: SceneManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
-    const subject = await subjectManager.getSubject(subjectId);
+    const scene = await sceneManager.getScene(sceneId);
 
-    if (!subject) {
-      vscode.window.showErrorMessage(`未找到主体: ${subjectId}`);
+    if (!scene) {
+      vscode.window.showErrorMessage(`未找到场景: ${sceneId}`);
       return;
     }
 
-    if (!subject.prompt || subject.prompt.length < 20) {
+    if (!scene.prompt || scene.prompt.length < 20) {
       vscode.window.showErrorMessage(
-        `主体描述太短或为空。请编辑 ${subject.mdPath} 添加详细描述。`
+        `场景描述太短或为空。请编辑 ${scene.mdPath} 添加详细描述。`
       );
       return;
     }
 
-    // 如果主体已存在，提示用户这是重新生成
-    if (subject.exists) {
+    // 如果场景已存在，提示用户这是重新生成
+    if (scene.exists) {
       const confirm = await vscode.window.showWarningMessage(
-        `主体「${subject.name}」已存在，重新生成将覆盖现有图片。是否继续？`,
+        `场景「${scene.name}」已存在，重新生成将覆盖现有图片。是否继续？`,
         '重新生成',
         '取消'
       );
@@ -348,20 +348,20 @@ export async function generateSingleSubjectCommand(
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: subject.exists ? `重新生成主体: ${subject.name}` : `生成主体: ${subject.name}`,
+        title: scene.exists ? `重新生成场景: ${scene.name}` : `生成场景: ${scene.name}`,
         cancellable: false
       },
       async (progress) => {
         progress.report({ message: '正在生成...' });
-        await generateSingleSubject(subject, provider);
-        const message = subject.exists 
-          ? `✓ 主体重新生成完成: ${subject.name}`
-          : `✓ 主体生成完成: ${subject.name}`;
+        await generateSingleScene(scene, provider);
+        const message = scene.exists 
+          ? `✓ 场景重新生成完成: ${scene.name}`
+          : `✓ 场景生成完成: ${scene.name}`;
         vscode.window.showInformationMessage(message);
       }
     );
   } catch (error) {
-    vscode.window.showErrorMessage(`生成主体失败: ${error}`);
+    vscode.window.showErrorMessage(`生成场景失败: ${error}`);
   }
 }
 

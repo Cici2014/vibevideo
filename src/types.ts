@@ -87,6 +87,28 @@ export interface Subject {
   exists: boolean;
   /** 提示词（从 Markdown 读取） */
   prompt: string;
+  /** 参考图路径（支持多张，逗号分隔），可选 */
+  referenceImages?: string[];
+}
+
+/**
+ * 场景
+ */
+export interface Scene {
+  /** ID（文件名） */
+  id: string;
+  /** 名称 */
+  name: string;
+  /** Markdown 文件路径 */
+  mdPath: string;
+  /** 图片路径 */
+  imagePath: string;
+  /** 图片是否已生成 */
+  exists: boolean;
+  /** 提示词（从 Markdown 读取） */
+  prompt: string;
+  /** 参考图路径（支持多张，逗号分隔），可选 */
+  referenceImages?: string[];
 }
 
 /**

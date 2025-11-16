@@ -2,177 +2,400 @@
  * 模板生成器 - 生成项目配置文件和 AI 上下文
  */
 
+import * as path from 'path';
+import * as vscode from 'vscode';
 import { VVProjectConfig } from '../types';
+import { readFile, fileExists } from '../utils/fileSystem';
+
+/**
+ * 获取模板文件路径
+ */
+function getTemplatePath(templateName: string): string | undefined {
+  // 首先尝试通过扩展上下文获取路径（如果可用）
+  // 在扩展激活时，可以通过 context.extensionPath 获取
+  
+  // 尝试多个可能的扩展 ID
+  const extensionIds = ['vibevideo.vibevideo', 'vibevideo'];
+  let extension: vscode.Extension<any> | undefined;
+  
+  for (const id of extensionIds) {
+    extension = vscode.extensions.getExtension(id);
+    if (extension) {
+      break;
+    }
+  }
+  
+  if (extension) {
+    return path.join(extension.extensionPath, 'templates', templateName);
+  }
+  
+  // 开发环境：从编译后的 dist/core 或 src/core 目录向上找到项目根目录
+  // __dirname 在编译后会是 dist/core，在开发时可能是 src/core
+  try {
+    const currentDir = __dirname;
+    // 尝试从 dist/core 或 src/core 向上找到项目根目录
+    let projectRoot = currentDir;
+    
+    // 如果当前在 dist/core 或 src/core，向上两级到项目根
+    if (currentDir.includes('dist') || currentDir.includes('src')) {
+      projectRoot = path.resolve(currentDir, '../../');
+    } else {
+      // 否则尝试从当前目录向上查找包含 templates 目录的位置
+      let current = currentDir;
+      for (let i = 0; i < 5; i++) {
+        const testPath = path.join(current, 'templates', templateName);
+        try {
+          const fs = require('fs');
+          if (fs.existsSync(testPath)) {
+            return testPath;
+          }
+        } catch {
+          // 忽略错误
+        }
+        current = path.resolve(current, '..');
+        if (current === path.resolve(current, '..')) {
+          break; // 到达根目录
+        }
+      }
+    }
+    
+    const templatePath = path.join(projectRoot, 'templates', templateName);
+    return templatePath;
+  } catch (error) {
+    console.warn('无法确定模板路径:', error);
+    return undefined;
+  }
+}
+
+/**
+ * 从文件读取模板，如果文件不存在则返回默认内容
+ */
+async function loadTemplate(templateName: string, defaultContent: string): Promise<string> {
+  const templatePath = getTemplatePath(templateName);
+  if (templatePath && await fileExists(templatePath)) {
+    try {
+      return await readFile(templatePath);
+    } catch (error) {
+      console.warn(`无法读取模板文件 ${templateName}，使用默认内容:`, error);
+      return defaultContent;
+    }
+  }
+  return defaultContent;
+}
+
+/**
+ * 同步版本：从文件读取模板，如果文件不存在则返回默认内容
+ */
+function loadTemplateSync(templateName: string, defaultContent: string): string {
+  const templatePath = getTemplatePath(templateName);
+  if (!templatePath) {
+    return defaultContent;
+  }
+  
+  try {
+    const fs = require('fs');
+    if (fs.existsSync(templatePath)) {
+      return fs.readFileSync(templatePath, 'utf-8');
+    }
+  } catch (error) {
+    console.warn(`无法读取模板文件 ${templateName}，使用默认内容:`, error);
+  }
+  
+  return defaultContent;
+}
 
 /**
  * 生成 .cursorrules 内容
  */
-export function generateCursorRules(): string {
-  return `这是一个 Vibe Video 视频项目。
+export async function generateCursorRules(): Promise<string> {
+  const defaultContent = `# Vibe Video 项目 - AI 助手指南
 
-## 你的任务
-当用户要求"生成分镜"时：
+## 核心任务
+当用户要求"生成分镜"时，执行以下步骤：
 1. 阅读 \`剧本.md\`
-2. 将剧本拆分成多个 5-10 秒的场景
-3. 为每个场景生成一个 **Markdown 文件**，保存到 \`storyboards/\`
-4. 同步为每个分镜生成一个首帧描述 Markdown，保存到 \`first-frames/\`
+2. 将剧本拆分为 5-10 秒的场景
+3. 为每个场景生成分镜 Markdown，保存到 \`storyboards/\`
+4. 同步生成首帧描述 Markdown，保存到 \`first-frames/\`
 
-## 首帧描述 Markdown（必备）
-- 需要存在 \`first-frames/\` 目录（若不存在请创建）
-- 文件命名推荐：\`01-opening-first-frame.md\`、\`scene3-first-frame.md\`
-- Markdown 可用段落或列表，不必严格格式，但请覆盖静态画面必备信息：首帧提示、主体外观（含表情/姿态）、场景环境、氛围情绪、光线色调、构图视角、关键道具/细节
-- 这是供文生图模型使用的图片描述，避免出现“镜头移动”“动作连贯”等视频化表述，确保只描述单帧画面
+---
 
-基础格式：\`\`\`markdown
-# 场景标题
-- **首帧提示**: …
-- **参考图片**: （如果项目中有首帧需要的主体图片，填写主体图片的地址，如 subjects/character.png 或 ref-img/scene.jpg。支持多张图片，用逗号分隔，如：ref-img/scene1.jpg, ref-img/scene2.jpg）
-- **主体**: …
-- **场景**: …
-- **光线**: …
-- **构图**: …
-- **补充元素**: …
-- **氛围**: …
-\`\`\`
+## 分镜脚本格式
 
-> **参考图片字段说明**：如果项目中已经有首帧需要的主体图片（如 \`assets/subjects/\` 目录下的主体图片），必须在此字段填写这些主体图片的地址。生成首帧时将使用该图片作为合成图片的图片来源。参考图片可以是主体图片（如 \`assets/subjects/character.png\`）或用户自定义的图片（如 \`ref-img/custom-scene.jpg\`）。**支持多张参考图片**，用逗号、中文逗号或空格分隔，如：\`ref-img/scene1.jpg, ref-img/scene2.jpg\` 或 \`ref-img/scene1.jpg ref-img/scene2.jpg\`。路径可以是相对路径（相对于项目根目录）或绝对路径。多张参考图时，系统会综合参考所有图片的风格、色调和整体氛围来生成首帧。
+### 必需内容
+每个分镜描述必须包含：
+- **场景/环境**：位置、背景
+- **主体**：主要对象
+- **光线**：光源方向、色调
+- **运镜**：镜头运动方式（推/拉/摇/移/固定）
+- **动作**：画面中的动态元素
+- **氛围**：情绪和感觉（可选）
 
-## 分镜格式（Markdown）
-
-基础格式（最简单）：
+### 文件格式
 \`\`\`markdown
 # 场景标题
 
-详细的视觉描述...
-包含：场景、主体、光线、运镜、动作、氛围
-\`\`\`
-
-推荐格式（带元数据）：
-\`\`\`markdown
-# 场景标题
-
-- **时长**: 5秒
-- **首帧**: assets/subjects/character.png
+- **时长**: 5秒（可选）
+- **主体**: 角色1, 角色2（如使用主体功能）
+- **参考图**: ref-img/xxx.jpg（如使用参考图）
 
 详细的视觉描述...
 \`\`\`
 
-## 重点：写好描述！（这是最重要的）
-每个描述必须包含：
-1. 场景/环境 - 在哪里？什么背景？
-2. 主体 - 画面的主要对象
-3. 光线 - 什么样的光？从哪来？
-4. 运镜 - 镜头如何移动？（推/拉/摇/移/固定）
-5. 动作 - 画面中有什么在动？
-6. 氛围 - 情绪和感觉（可选）
-
-## 好描述示例
+### 示例
 \`\`\`markdown
 # 开场镜头
 
-城市清晨的天际线，玻璃幕墙的高楼反射着金色的阳光。
+城市清晨的天际线，玻璃幕墙的高楼反射金色阳光。
 无人机视角从低空缓慢上升，展现整个城市轮廓。
 街道上车流如织，人们开始一天的忙碌。
 光线温暖明亮，画面充满希望和活力的感觉。
 \`\`\`
 
-## 命名规则（随意）
-- \`01-opening.md\` ✓
-- \`scene1.md\` ✓
-- \`开场.md\` ✓
+---
 
-## 使用主体/角色（重要！）⭐
+## 首帧描述格式
 
-如果视频中有固定角色（如三只小猪、主人公等），使用主体功能：
+### 文件位置
+- 目录：\`first-frames/\`（不存在则创建）
+- 命名：\`01-opening-first-frame.md\` 或 \`scene3-first-frame.md\`
 
-### 1. 在 subjects/ 目录定义主体
-创建 \`subjects/猪大哥.md\`：
-\`\`\`markdown
-# 猪大哥
-
-一只可爱的粉色小猪，戴着红色帽子，穿蓝色背心。
-3D卡通风格，圆润的体型，大大的眼睛，友善的表情。
-站立姿势，全身照。
-
-**重要**：只生成主体本身，背景必须是纯白色，画面中不能有任何其他物品、道具或装饰。
-\`\`\`
-
-> **主体生成要求**：生成主体图片时，必须确保：
-> - ✅ 只生成主体本身（角色或物体）
-> - ✅ 背景必须是纯白色（#FFFFFF）
-> - ✅ 画面中不能有任何其他物品、道具、装饰或背景元素
-> - ✅ 主体应该完整、清晰，便于后续合成到不同场景中
-
-### 2. 在分镜中引用主体
-\`\`\`markdown
-# 01-草地玩耍
-
-- **主体**: 猪大哥, 猪二哥, 猪小弟
-- **场景**: 绿色草地，阳光明媚，蓝天白云
-- **构图**: 猪大哥在前跑，其他在后追
-
-三只小猪在草地上追逐玩耍...
-\`\`\`
-
-### 好处
-- ✅ 角色外观完全一致
-- ✅ 不同场景中保持统一
-- ✅ 适合有剧情的视频
-
-## 使用参考图（重要！）⭐
-
-如果用户提供了参考图片（如产品图、场景照片、风格参考等），可以使用参考图来生成首帧：
-
-### 1. 将参考图放入 ref-img/ 目录
-将参考图片（.png, .jpg, .jpeg）放入项目根目录的 \`ref-img/\` 目录。
-
-### 2. 在分镜中引用参考图
-\`\`\`markdown
-# 01-产品展示
-
-- **参考图**: ref-img/product-photo.jpg
-- **场景**: 现代办公室，白色背景
-- **光线**: 柔和的自然光从左侧照来
-
-基于参考图的产品展示场景...
-\`\`\`
-
-**支持多张参考图**（用逗号分隔）：
-\`\`\`markdown
-# 01-产品展示
-
-- **参考图**: ref-img/product-photo.jpg, ref-img/background-style.jpg
-- **场景**: 现代办公室，白色背景
-- **光线**: 柔和的自然光从左侧照来
-
-综合参考多张图片的产品展示场景...
-\`\`\`
-
-### 3. 在首帧描述中说明如何使用参考图
+### 必需字段
 \`\`\`markdown
 # 场景标题
-- **首帧提示**: 参考 ref-img/product-photo.jpg 的产品外观和风格
-- **参考图片**: ref-img/product-photo.jpg, ref-img/style-reference.jpg
-- **主体**: 与参考图一致的产品
-- **场景**: ...
+- **首帧提示**: 静态画面描述（避免视频化表述）
+- **参考图片**: 路径1, 路径2（可选，支持多张，逗号分隔）
+- **主体**: 主体外观（含表情/姿态）
+- **场景**: 环境描述
+- **光线**: 光线色调
+- **构图**: 视角和构图
+- **氛围**: 情绪氛围
 \`\`\`
 
-### 好处
-- ✅ 可以使用用户自己的素材
-- ✅ 保持品牌一致性
-- ✅ 风格和外观更可控
-- ✅ 适合产品展示、品牌宣传等场景
+### 重要约束
+- ✅ 只描述单帧静态画面
+- ❌ 禁止"镜头移动""动作连贯"等视频化表述
+- ✅ 参考图片路径：相对路径或绝对路径，支持多张（逗号/空格分隔）
 
-Markdown 格式很灵活，重点是内容质量！
-描述质量直接决定视频质量。
+---
+
+## 主体功能（可选）
+
+### 使用场景
+视频中有固定角色时使用，确保角色外观一致。
+
+### 定义主体
+在 \`subjects/\` 目录创建 \`角色名.md\`：
+\`\`\`markdown
+# 角色名
+
+角色外观描述...
+3D卡通风格，圆润体型，大眼睛...
+
+**约束**：只生成主体本身，背景纯白色（#FFFFFF），无其他物品。
+\`\`\`
+
+### 引用主体
+在分镜中使用：
+\`\`\`markdown
+- **主体**: 角色1, 角色2
+- **场景**: 场景描述
+- **构图**: 构图说明
+\`\`\`
+
+---
+
+## 参考图功能（可选）
+
+### 使用场景
+用户提供参考图片（产品图、场景照片、风格参考等）时使用。
+
+### 放置位置
+将图片（.png, .jpg, .jpeg）放入 \`ref-img/\` 目录。
+
+### 引用方式
+\`\`\`markdown
+- **参考图**: ref-img/product.jpg
+- **参考图**: ref-img/img1.jpg, ref-img/img2.jpg（多张）
+\`\`\`
+
+### 生成视频时的优先级
+生成视频时，图片使用优先级为：
+1. **参考图**（\`ref-img/xxx.jpg\`）- 优先使用，用户可控
+2. **首帧图片**（\`first-frames/xxx.png\`）- 如果未指定参考图，使用生成的首帧
+3. **文生视频** - 如果都没有，使用纯文本生成
+
+**重要**：如果分镜脚本中指定了参考图，生成视频时将直接使用参考图，而不是生成的首帧图片。这样可以确保用户对参考图的使用更加可控。
+
+---
+
+## 优先级
+
+1. **描述质量** > 格式规范
+2. **内容完整** > 格式完美
+3. **视觉清晰** > 技术细节
+
+---
+
+## 文件命名
+- 支持任意命名：\`01-opening.md\`、\`scene1.md\`、\`开场.md\`
+- 建议使用有意义的名称
 `;
+  
+  return await loadTemplate('cursorrules.md', defaultContent);
+}
+
+/**
+ * 同步版本：生成 .cursorrules 内容
+ */
+export function generateCursorRulesSync(): string {
+  const defaultContent = `# Vibe Video 项目 - AI 助手指南
+
+## 核心任务
+当用户要求"生成分镜"时，执行以下步骤：
+1. 阅读 \`剧本.md\`
+2. 将剧本拆分为 5-10 秒的场景
+3. 为每个场景生成分镜 Markdown，保存到 \`storyboards/\`
+4. 同步生成首帧描述 Markdown，保存到 \`first-frames/\`
+
+---
+
+## 分镜脚本格式
+
+### 必需内容
+每个分镜描述必须包含：
+- **场景/环境**：位置、背景
+- **主体**：主要对象
+- **光线**：光源方向、色调
+- **运镜**：镜头运动方式（推/拉/摇/移/固定）
+- **动作**：画面中的动态元素
+- **氛围**：情绪和感觉（可选）
+
+### 文件格式
+\`\`\`markdown
+# 场景标题
+
+- **时长**: 5秒（可选）
+- **主体**: 角色1, 角色2（如使用主体功能）
+- **参考图**: ref-img/xxx.jpg（如使用参考图）
+
+详细的视觉描述...
+\`\`\`
+
+### 示例
+\`\`\`markdown
+# 开场镜头
+
+城市清晨的天际线，玻璃幕墙的高楼反射金色阳光。
+无人机视角从低空缓慢上升，展现整个城市轮廓。
+街道上车流如织，人们开始一天的忙碌。
+光线温暖明亮，画面充满希望和活力的感觉。
+\`\`\`
+
+---
+
+## 首帧描述格式
+
+### 文件位置
+- 目录：\`first-frames/\`（不存在则创建）
+- 命名：\`01-opening-first-frame.md\` 或 \`scene3-first-frame.md\`
+
+### 必需字段
+\`\`\`markdown
+# 场景标题
+- **首帧提示**: 静态画面描述（避免视频化表述）
+- **参考图片**: 路径1, 路径2（可选，支持多张，逗号分隔）
+- **主体**: 主体外观（含表情/姿态）
+- **场景**: 环境描述
+- **光线**: 光线色调
+- **构图**: 视角和构图
+- **氛围**: 情绪氛围
+\`\`\`
+
+### 重要约束
+- ✅ 只描述单帧静态画面
+- ❌ 禁止"镜头移动""动作连贯"等视频化表述
+- ✅ 参考图片路径：相对路径或绝对路径，支持多张（逗号/空格分隔）
+
+---
+
+## 主体功能（可选）
+
+### 使用场景
+视频中有固定角色时使用，确保角色外观一致。
+
+### 定义主体
+在 \`subjects/\` 目录创建 \`角色名.md\`：
+\`\`\`markdown
+# 角色名
+
+角色外观描述...
+3D卡通风格，圆润体型，大眼睛...
+
+**约束**：只生成主体本身，背景纯白色（#FFFFFF），无其他物品。
+\`\`\`
+
+### 引用主体
+在分镜中使用：
+\`\`\`markdown
+- **主体**: 角色1, 角色2
+- **场景**: 场景描述
+- **构图**: 构图说明
+\`\`\`
+
+---
+
+## 参考图功能（可选）
+
+### 使用场景
+用户提供参考图片（产品图、场景照片、风格参考等）时使用。
+
+### 放置位置
+将图片（.png, .jpg, .jpeg）放入 \`ref-img/\` 目录。
+
+### 引用方式
+\`\`\`markdown
+- **参考图**: ref-img/product.jpg
+- **参考图**: ref-img/img1.jpg, ref-img/img2.jpg（多张）
+\`\`\`
+
+### 生成视频时的优先级
+生成视频时，图片使用优先级为：
+1. **参考图**（\`ref-img/xxx.jpg\`）- 优先使用，用户可控
+2. **首帧图片**（\`first-frames/xxx.png\`）- 如果未指定参考图，使用生成的首帧
+3. **文生视频** - 如果都没有，使用纯文本生成
+
+**重要**：如果分镜脚本中指定了参考图，生成视频时将直接使用参考图，而不是生成的首帧图片。这样可以确保用户对参考图的使用更加可控。
+
+---
+
+## 优先级
+
+1. **描述质量** > 格式规范
+2. **内容完整** > 格式完美
+3. **视觉清晰** > 技术细节
+
+---
+
+## 文件命名
+- 支持任意命名：\`01-opening.md\`、\`scene1.md\`、\`开场.md\`
+- 建议使用有意义的名称
+`;
+  
+  return loadTemplateSync('cursorrules.md', defaultContent);
 }
 
 /**
  * 生成 .clinerules 内容（与 .cursorrules 相同）
  */
-export function generateClineRules(): string {
-  return generateCursorRules();
+export async function generateClineRules(): Promise<string> {
+  return await generateCursorRules();
+}
+
+/**
+ * 同步版本：生成 .clinerules 内容
+ */
+export function generateClineRulesSync(): string {
+  return generateCursorRulesSync();
 }
 
 /**
@@ -194,8 +417,8 @@ export function generateProjectConfig(projectName: string): VVProjectConfig {
 /**
  * 生成示例剧本
  */
-export function generateExampleScript(): string {
-  return `# 示例剧本：咖啡馆的清晨
+export async function generateExampleScript(): Promise<string> {
+  const defaultContent = `# 示例剧本：咖啡馆的清晨
 
 ## 概述
 这是一个温馨的短视频，展现咖啡馆清晨的美好时光。
@@ -221,13 +444,15 @@ export function generateExampleScript(): string {
 **提示**：现在你可以使用 Cursor AI，让它根据这个剧本生成分镜脚本！
 在 Cursor Chat 中输入："根据剧本.md 生成分镜脚本"
 `;
+  
+  return await loadTemplate('example-script.md', defaultContent);
 }
 
 /**
  * 生成 README 说明文档
  */
-export function generateContextReadme(): string {
-  return `# Vibe Video 项目说明
+export async function generateContextReadme(): Promise<string> {
+  const defaultContent = `# Vibe Video 项目说明
 
 ## 这是什么？
 这个文件夹包含了帮助 AI 助手理解项目的参考文档。
@@ -243,13 +468,15 @@ export function generateContextReadme(): string {
 
 详细的描述 = 更好的视频质量！
 `;
+  
+  return await loadTemplate('context-readme.md', defaultContent);
 }
 
 /**
  * 生成分镜指南
  */
-export function generateStoryboardGuide(): string {
-  return `# 如何写好分镜描述
+export async function generateStoryboardGuide(): Promise<string> {
+  const defaultContent = `# 如何写好分镜描述
 
 ## 5 要素法
 
@@ -294,13 +521,15 @@ export function generateStoryboardGuide(): string {
 整体氛围宁静、温馨，充满清晨的美好感。
 \`\`\`
 `;
+  
+  return await loadTemplate('storyboard-guide.md', defaultContent);
 }
 
 /**
  * 生成镜头类型指南
  */
-export function generateShotGuide(): string {
-  return `# 镜头类型参考
+export async function generateShotGuide(): Promise<string> {
+  const defaultContent = `# 镜头类型参考
 
 ## 景别
 - **特写 (Close-up)**: 聚焦细节
@@ -323,13 +552,15 @@ export function generateShotGuide(): string {
 - **仰拍 (Low angle)**: 从下往上
 - **鸟瞰 (Aerial)**: 垂直向下
 `;
+  
+  return await loadTemplate('shot-guide.md', defaultContent);
 }
 
 /**
  * 生成提示词示例
  */
-export function generatePromptExamples(): string {
-  return `# 提示词示例
+export async function generatePromptExamples(): Promise<string> {
+  const defaultContent = `# 提示词示例
 
 ## 产品展示类
 
@@ -367,5 +598,7 @@ export function generatePromptExamples(): string {
 自然光，色调鲜艳，充满温暖和喜悦的情绪。
 \`\`\`
 `;
+  
+  return await loadTemplate('prompt-examples.md', defaultContent);
 }
 

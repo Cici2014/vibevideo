@@ -4,7 +4,7 @@
   "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.105.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Other"
@@ -76,6 +76,18 @@
         "icon": "$(account)"
       },
       {
+        "command": "vibevideo.generateScenes",
+        "title": "Vibe Video: Generate All Scenes",
+        "category": "Vibe Video",
+        "icon": "$(symbol-color)"
+      },
+      {
+        "command": "vibevideo.generateSingleScene",
+        "title": "生成场景",
+        "category": "Vibe Video",
+        "icon": "$(symbol-color)"
+      },
+      {
         "command": "vibevideo.composeFirstFrames",
         "title": "Vibe Video: Compose All First Frames",
         "category": "Vibe Video",
@@ -91,6 +103,12 @@
         "command": "vibevideo.openFirstFrameResource",
         "title": "Vibe Video: Open First Frame Resource",
         "category": "Vibe Video"
+      },
+      {
+        "command": "vibevideo.addReferenceImage",
+        "title": "添加参考图",
+        "category": "Vibe Video",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
@@ -119,11 +137,26 @@
         }
       ],
       "view/item/context": [
-          {
-            "command": "vibevideo.generateVideos",
-            "when": "view == vvResources && viewItem == clipsRoot",
-            "group": "inline"
-          },
+        {
+          "command": "vibevideo.generateFirstFrames",
+          "when": "view == vvResources && viewItem == firstFramesRoot",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateSubjects",
+          "when": "view == vvResources && viewItem == subjectsRoot",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateScenes",
+          "when": "view == vvResources && viewItem == scenesRoot",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateVideos",
+          "when": "view == vvResources && viewItem == clipsRoot",
+          "group": "inline"
+        },
         {
           "command": "vibevideo.composeStoryboardFirstFrame",
           "when": "view == vvResources && viewItem == firstFrame",
@@ -135,8 +168,18 @@
           "group": "inline"
         },
         {
+          "command": "vibevideo.generateSingleScene",
+          "when": "view == vvResources && viewItem == scene",
+          "group": "inline"
+        },
+        {
           "command": "vibevideo.generateSingleVideo",
           "when": "view == vvResources && viewItem == clip",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.addReferenceImage",
+          "when": "view == vvResources && viewItem == referenceImagesRoot",
           "group": "inline"
         }
       ]
@@ -200,7 +243,7 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.105.0",
+    "@types/vscode": "^1.106.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.46.3",

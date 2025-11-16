@@ -9,19 +9,21 @@ import { ProjectInitializer } from './core/ProjectInitializer';
 import { StoryboardParser } from './core/StoryboardParser';
 import { ConfigManager } from './core/ConfigManager';
 import { SubjectManager } from './core/SubjectManager';
+import { SceneManager } from './core/SceneManager';
 import { ResourceTreeProvider, ResourceTreeItem } from './ui/ResourceTreeProvider';
 import { ProviderManager } from './providers/ProviderManager';
 import { configureVideoAI, showCurrentConfig } from './commands/configureAPI';
 import { generateAllVideos, generateSingleVideoFromClip } from './commands/generateVideos';
-import { generateAllFirstFrames } from './commands/generateFirstFrames';
+import { generateAllFirstFrames, generateFirstFrameForStoryboard } from './commands/generateFirstFrames';
 import { generateAllSubjects, generateSingleSubjectCommand } from './commands/generateSubjects';
-import { composeAllFirstFrames, composeFirstFrameForStoryboard } from './commands/composeFirstFrames';
-import { getWorkspaceRoot, isVVProject } from './utils/fileSystem';
+import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
+import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
 let providerManager: ProviderManager | undefined;
 let configManager: ConfigManager | undefined;
 let subjectManager: SubjectManager | undefined;
+let sceneManager: SceneManager | undefined;
 
 /**
  * 扩展激活
@@ -37,6 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
   
   if (workspaceRoot) {
     subjectManager = new SubjectManager(workspaceRoot);
+    sceneManager = new SceneManager(workspaceRoot);
   }
   
   resourceTreeProvider = new ResourceTreeProvider(workspaceRoot);
@@ -124,12 +127,54 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // ===== 场景命令 =====
+  
+  const generateScenesCommand = vscode.commands.registerCommand('vibevideo.generateScenes', async () => {
+    if (!providerManager || !sceneManager) {
+      vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+      return;
+    }
+    await generateAllScenes(providerManager, sceneManager);
+  });
+
+  const generateSingleSceneCommandHandler = vscode.commands.registerCommand(
+    'vibevideo.generateSingleScene',
+    async (item: ResourceTreeItem) => {
+      if (!providerManager || !sceneManager) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      if (!item || item.resourceType !== 'scene') {
+        vscode.window.showErrorMessage('请选择场景项');
+        return;
+      }
+
+      // 从 ResourceTreeItem 中提取 sceneId
+      // 优先使用 markdown 路径，如果没有则使用 resourcePath
+      const scenePath = item.relatedPaths?.markdown || item.resourcePath;
+      if (!scenePath) {
+        vscode.window.showErrorMessage('无法获取场景路径');
+        return;
+      }
+
+      // 从文件路径提取 sceneId（文件名，去掉扩展名）
+      const sceneId = path.basename(scenePath, path.extname(scenePath));
+      
+      await generateSingleSceneCommand(sceneId, providerManager, sceneManager);
+      
+      // 刷新资源树
+      resourceTreeProvider?.refresh();
+    }
+  );
+
+  // 注意：composeFirstFrames 命令已合并到 generateFirstFrames，保留此命令以兼容旧版本
   const composeFirstFramesCommand = vscode.commands.registerCommand('vibevideo.composeFirstFrames', async () => {
     if (!providerManager || !subjectManager || !resourceTreeProvider) {
       vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
-    await composeAllFirstFrames(providerManager, subjectManager, resourceTreeProvider);
+    // 使用统一的生成函数
+    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, sceneManager);
   });
 
   const composeSingleFirstFrameCommand = vscode.commands.registerCommand(
@@ -150,11 +195,13 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      await composeFirstFrameForStoryboard(
+      // 使用统一的生成函数
+      await generateFirstFrameForStoryboard(
         storyboardPath,
         providerManager,
         subjectManager,
-        resourceTreeProvider
+        resourceTreeProvider,
+        sceneManager
       );
     }
   );
@@ -165,14 +212,15 @@ export function activate(context: vscode.ExtensionContext) {
     if (!providerManager || !resourceTreeProvider) {
       return;
     }
-    await generateAllVideos(providerManager, resourceTreeProvider);
+    await generateAllVideos(providerManager, resourceTreeProvider, subjectManager, sceneManager);
   });
 
   const generateFirstFramesCommand = vscode.commands.registerCommand('vibevideo.generateFirstFrames', async () => {
-    if (!providerManager || !resourceTreeProvider) {
+    if (!providerManager || !subjectManager || !resourceTreeProvider) {
+      vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
-    await generateAllFirstFrames(providerManager, resourceTreeProvider);
+    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, sceneManager);
   });
 
   const openFirstFrameResourceCommand = vscode.commands.registerCommand(
@@ -248,7 +296,7 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      await generateSingleVideoFromClip(item.resourcePath, providerManager, resourceTreeProvider);
+      await generateSingleVideoFromClip(item.resourcePath, providerManager, resourceTreeProvider, subjectManager, sceneManager);
     }
   );
 
@@ -290,6 +338,117 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const openSceneResourceCommand = vscode.commands.registerCommand(
+    'vibevideo.openSceneResource',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        return;
+      }
+
+      const paths: Array<{ path: string; isMarkdown: boolean }> = [];
+      const primary = item.resourcePath;
+      if (primary) {
+        paths.push({ path: primary, isMarkdown: primary.toLowerCase().endsWith('.md') });
+      }
+      const markdownPath = item.relatedPaths?.markdown;
+      if (markdownPath && markdownPath !== primary) {
+        paths.unshift({ path: markdownPath, isMarkdown: true });
+      }
+      const imagePath = item.relatedPaths?.image;
+      if (imagePath && imagePath !== primary) {
+        paths.push({ path: imagePath, isMarkdown: false });
+      }
+
+      const opened = new Set<string>();
+      for (const entry of paths) {
+        if (opened.has(entry.path)) {
+          continue;
+        }
+        opened.add(entry.path);
+        const uri = vscode.Uri.file(entry.path);
+        if (entry.isMarkdown) {
+          const doc = await vscode.workspace.openTextDocument(uri);
+          await vscode.window.showTextDocument(doc, { preview: false });
+        } else {
+          await vscode.commands.executeCommand('vscode.open', uri);
+        }
+      }
+    }
+  );
+
+  const addReferenceImageCommand = vscode.commands.registerCommand(
+    'vibevideo.addReferenceImage',
+    async () => {
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+
+      // 打开文件选择器，只允许选择图片文件
+      const fileUris = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: true,
+        openLabel: '添加参考图',
+        filters: {
+          '图片文件': ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp']
+        }
+      });
+
+      if (!fileUris || fileUris.length === 0) {
+        return;
+      }
+
+      const refImgDir = path.join(workspaceRoot, 'ref-img');
+      await ensureDir(refImgDir);
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const uri of fileUris) {
+        try {
+          const sourcePath = uri.fsPath;
+          const fileName = path.basename(sourcePath);
+          const targetPath = path.join(refImgDir, fileName);
+
+          // 如果文件已存在，询问是否覆盖
+          if (await fileExists(targetPath)) {
+            const result = await vscode.window.showWarningMessage(
+              `文件 ${fileName} 已存在，是否覆盖？`,
+              '覆盖',
+              '跳过',
+              '取消'
+            );
+
+            if (result === '取消') {
+              return; // 取消整个操作
+            } else if (result === '跳过') {
+              continue; // 跳过当前文件
+            }
+          }
+
+          // 复制文件
+          await copyFile(sourcePath, targetPath);
+          successCount++;
+        } catch (error) {
+          console.error('添加参考图时出错:', error);
+          errorCount++;
+        }
+      }
+
+      // 刷新视图
+      if (successCount > 0) {
+        resourceTreeProvider?.refresh();
+        if (errorCount > 0) {
+          vscode.window.showInformationMessage(`已添加 ${successCount} 个参考图，${errorCount} 个失败`);
+        } else {
+          vscode.window.showInformationMessage(`已添加 ${successCount} 个参考图`);
+        }
+      }
+    }
+  );
+
   // 注册所有命令和视图
   context.subscriptions.push(
     treeView,
@@ -301,6 +460,8 @@ export function activate(context: vscode.ExtensionContext) {
     showConfigCommand,
     generateSubjectsCommand,
     generateSingleSubjectCommandHandler,
+    generateScenesCommand,
+    generateSingleSceneCommandHandler,
     composeFirstFramesCommand,
     composeSingleFirstFrameCommand,
     generateVideosCommand,
@@ -308,7 +469,9 @@ export function activate(context: vscode.ExtensionContext) {
     generateSingleVideoCommand,
     openFirstFrameResourceCommand,
     openVideoClipCommand,
-    openSubjectResourceCommand
+    openSubjectResourceCommand,
+    openSceneResourceCommand,
+    addReferenceImageCommand
   );
 
   // 如果已经是 VV 项目，自动刷新视图

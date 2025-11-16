@@ -8,14 +8,19 @@ import { ProviderManager } from '../providers/ProviderManager';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { Storyboard } from '../types';
 import { StoryboardParser } from '../core/StoryboardParser';
-import { fileExists } from '../utils/fileSystem';
+import { SubjectManager } from '../core/SubjectManager';
+import { SceneManager } from '../core/SceneManager';
+import { fileExists, readFile, ensureDir } from '../utils/fileSystem';
+import { imagesToBase64 } from '../utils/imageEncoder';
 
 /**
  * 批量生成所有视频
  */
 export async function generateAllVideos(
   providerManager: ProviderManager,
-  treeProvider: ResourceTreeProvider
+  treeProvider: ResourceTreeProvider,
+  subjectManager?: SubjectManager,
+  sceneManager?: SceneManager
 ): Promise<void> {
   try {
     // 获取 Provider
@@ -29,14 +34,49 @@ export async function generateAllVideos(
       return;
     }
 
-    // 询问用户
-    const confirm = await vscode.window.showInformationMessage(
-      `将生成 ${storyboards.length} 个视频，预计需要 ${Math.ceil(storyboards.length * 2)} 分钟。是否继续？`,
-      '继续',
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage('无法获取工作区路径');
+      return;
+    }
+
+    // 检查每个分镜对应的视频文件是否存在
+    const videosToGenerate: Array<{ storyboard: Storyboard; exists: boolean }> = [];
+    
+    for (const sb of storyboards) {
+      const videoPath = path.join(workspaceRoot, 'assets', 'clips', `${sb.id}.mp4`);
+      const exists = await fileExists(videoPath);
+      videosToGenerate.push({ storyboard: sb, exists });
+    }
+
+    const existingVideos = videosToGenerate.filter(item => item.exists);
+    const newVideos = videosToGenerate.filter(item => !item.exists);
+
+    // 如果有已存在的视频，提醒用户这是重新生成
+    let confirmMessage: string;
+    let confirmButton: string;
+    
+    if (existingVideos.length > 0 && newVideos.length > 0) {
+      // 部分已存在，部分需要生成
+      confirmMessage = `将生成 ${videosToGenerate.length} 个视频（其中 ${existingVideos.length} 个将重新生成，${newVideos.length} 个为新生成），预计需要 ${Math.ceil(videosToGenerate.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmButton = '继续生成';
+    } else if (existingVideos.length > 0) {
+      // 所有视频都已存在，这是重新生成
+      confirmMessage = `所有视频都已生成。将重新生成 ${existingVideos.length} 个视频，预计需要 ${Math.ceil(existingVideos.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmButton = '重新生成';
+    } else {
+      // 所有都是新生成
+      confirmMessage = `将生成 ${newVideos.length} 个视频，预计需要 ${Math.ceil(newVideos.length * 2)} 分钟。是否继续？`;
+      confirmButton = '继续';
+    }
+
+    const confirm = await vscode.window.showWarningMessage(
+      confirmMessage,
+      confirmButton,
       '取消'
     );
 
-    if (confirm !== '继续') {
+    if (confirm !== confirmButton) {
       return;
     }
 
@@ -44,45 +84,73 @@ export async function generateAllVideos(
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Vibe Video - 生成视频',
-        cancellable: false
+        title: existingVideos.length > 0 ? 'Vibe Video - 重新生成视频' : 'Vibe Video - 生成视频',
+        cancellable: true
       },
-      async (progress) => {
+      async (progress, token) => {
         let successCount = 0;
         let failCount = 0;
         let imageToVideoCount = 0;
+        let cancelled = false;
 
-        for (let i = 0; i < storyboards.length; i++) {
-          const sb = storyboards[i];
+        for (let i = 0; i < videosToGenerate.length; i++) {
+          // 检查是否已取消
+          if (token.isCancellationRequested) {
+            cancelled = true;
+            progress.report({ message: '正在取消...' });
+            break;
+          }
+
+          const { storyboard: sb, exists } = videosToGenerate[i];
+          const actionText = exists ? '重新生成' : '生成';
+          
           progress.report({
-            message: `正在生成 ${i + 1}/${storyboards.length}: ${sb.title}`,
-            increment: (100 / storyboards.length)
+            message: `正在${actionText} ${i + 1}/${videosToGenerate.length}: ${sb.title}`,
+            increment: (100 / videosToGenerate.length)
           });
 
           try {
-            await generateSingleVideo(sb, provider);
+            const parser = new StoryboardParser();
+            await generateSingleVideo(sb, provider, subjectManager, sceneManager, parser);
             successCount++;
             
-            if (sb.firstFrame) {
+            // 统计图生视频数量（包括参考图和首帧图片）
+            if ((sb.referenceImages && sb.referenceImages.length > 0) || sb.firstFrame) {
               imageToVideoCount++;
             }
           } catch (error) {
+            // 如果是取消错误，不记录为失败
+            if (token.isCancellationRequested) {
+              cancelled = true;
+              break;
+            }
             console.error(`生成视频失败: ${sb.id}`, error);
             failCount++;
           }
         }
 
         // 显示结果
-        const message = `
-视频生成完成！
+        if (cancelled) {
+          const actionText = existingVideos.length > 0 ? '重新生成' : '生成';
+          const message = `
+视频${actionText}已取消
+✓ 已完成: ${successCount} (其中 ${imageToVideoCount} 个图生视频)
+✗ 失败: ${failCount}
+          `;
+          vscode.window.showWarningMessage(message);
+        } else {
+          const actionText = existingVideos.length > 0 ? '重新生成' : '生成';
+          const message = `
+视频${actionText}完成！
 ✓ 成功: ${successCount} (其中 ${imageToVideoCount} 个图生视频)
 ✗ 失败: ${failCount}
-        `;
+          `;
 
-        if (failCount === 0) {
-          vscode.window.showInformationMessage(message);
-        } else {
-          vscode.window.showWarningMessage(message);
+          if (failCount === 0) {
+            vscode.window.showInformationMessage(message);
+          } else {
+            vscode.window.showWarningMessage(message);
+          }
         }
 
         // 刷新视图
@@ -99,31 +167,203 @@ export async function generateAllVideos(
  */
 async function generateSingleVideo(
   storyboard: Storyboard,
-  provider: any
+  provider: any,
+  subjectManager?: SubjectManager,
+  sceneManager?: SceneManager,
+  parser?: StoryboardParser
 ): Promise<void> {
   let taskId: string;
 
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  if (!workspaceRoot) {
+    throw new Error('无法获取工作区路径');
+  }
+
   // 判断使用哪种生成方式
-  if (storyboard.firstFrame) {
-    // 图生视频
-    console.log(`[图生视频] ${storyboard.id}`);
+  // 优先级：参考图 > 首帧图片 > 主体+场景 > 主体 > 场景 > 文生视频
+  let imagePath: string | undefined;
+  let imageSource: string | undefined;
+
+  // 1. 优先使用参考图（用户提供的参考图，更可控）
+  if (storyboard.referenceImages && storyboard.referenceImages.length > 0) {
+    // 使用第一张参考图
+    imagePath = storyboard.referenceImages[0];
+    imageSource = '参考图';
     
-    // 将相对路径转换为绝对路径
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-    if (!workspaceRoot) {
-      throw new Error('无法获取工作区路径');
-    }
-    
-    let firstFramePath = storyboard.firstFrame;
     // 如果是相对路径，转换为绝对路径
-    if (!path.isAbsolute(firstFramePath)) {
-      firstFramePath = path.join(workspaceRoot, firstFramePath);
+    if (!path.isAbsolute(imagePath)) {
+      imagePath = path.join(workspaceRoot, imagePath);
     }
     
-    console.log(`[图生视频] 使用首帧图片: ${firstFramePath}`);
+    // 检查文件是否存在
+    if (!(await fileExists(imagePath))) {
+      throw new Error(`参考图不存在: ${storyboard.referenceImages[0]}`);
+    }
     
+    const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
+    console.log(`[图生视频] ${storyboard.id}: 使用参考图 ${relativePath}`);
+  } 
+  // 2. 如果没有参考图，使用首帧图片（生成的首帧）
+  else if (storyboard.firstFrame) {
+    imagePath = storyboard.firstFrame;
+    imageSource = '首帧图片';
+    
+    // 如果是相对路径，转换为绝对路径
+    if (!path.isAbsolute(imagePath)) {
+      imagePath = path.join(workspaceRoot, imagePath);
+    }
+    
+    // 检查文件是否存在
+    if (!(await fileExists(imagePath))) {
+      throw new Error(`首帧图片不存在: ${storyboard.firstFrame}`);
+    }
+    
+    const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
+    console.log(`[图生视频] ${storyboard.id}: 使用首帧图片 ${relativePath}`);
+  }
+  // 3. 如果没有首帧，尝试使用主体和场景
+  else if (subjectManager && sceneManager && parser) {
+    const content = await readFile(storyboard.filePath);
+    const subjects = parser.extractSubjects(content);
+    const scenes = parser.extractScenes(content);
+    
+    // 检查主体和场景图片是否存在
+    if (subjects.length > 0 && scenes.length > 0) {
+      const subjectIds = subjects.slice(0, 3);
+      const sceneIds = scenes.slice(0, 2);
+      
+      let allSubjectsExist = true;
+      let allScenesExist = true;
+      
+      for (const subjectId of subjectIds) {
+        if (!(await subjectManager.subjectExists(subjectId))) {
+          allSubjectsExist = false;
+          break;
+        }
+      }
+      
+      for (const sceneId of sceneIds) {
+        if (!(await sceneManager.sceneExists(sceneId))) {
+          allScenesExist = false;
+          break;
+        }
+      }
+      
+      if (allSubjectsExist && allScenesExist) {
+        // 使用主体和场景合成一张图片作为视频输入
+        const subjectImagePaths = subjectIds.map(id => subjectManager.getSubjectImagePath(id));
+        const sceneImagePaths = sceneIds.map(id => sceneManager.getSceneImagePath(id));
+        const allImagePaths = [...subjectImagePaths, ...sceneImagePaths];
+        const imageBase64Array = await imagesToBase64(allImagePaths);
+        
+        // 使用合成API生成一张临时图片
+        const composePrompt = `## 任务
+使用提供的主体图片和场景图片构建画面，用于生成视频。
+
+## 输入
+- 主体：${subjectIds.join('，')}
+- 场景：${sceneIds.join('，')}
+- 描述：${storyboard.description.substring(0, 200)}
+
+## 要求
+1. 将主体放置在场景中，保持主体的真实比例和外观特征
+2. 场景图片作为背景和环境参考
+3. 保持统一的美术风格、光线方向和渲染质量
+4. 输出尺寸为 1280x720，适合视频生成`;
+
+        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        
+        // 下载临时图片
+        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        imagePath = tempImagePath;
+        imageSource = `主体+场景合成`;
+        console.log(`[图生视频] ${storyboard.id}: 使用主体+场景合成图片`);
+      }
+    }
+    
+    // 如果主体+场景不可用，尝试只用主体
+    if (!imagePath && subjects.length > 0) {
+      const subjectIds = subjects.slice(0, 3);
+      let allSubjectsExist = true;
+      
+      for (const subjectId of subjectIds) {
+        if (!(await subjectManager.subjectExists(subjectId))) {
+          allSubjectsExist = false;
+          break;
+        }
+      }
+      
+      if (allSubjectsExist) {
+        const subjectImagePaths = subjectIds.map(id => subjectManager.getSubjectImagePath(id));
+        const imageBase64Array = await imagesToBase64(subjectImagePaths);
+        
+        const composePrompt = `## 任务
+使用提供的主体图片构建画面，用于生成视频。
+
+## 输入
+- 主体：${subjectIds.join('，')}
+- 描述：${storyboard.description.substring(0, 200)}
+
+## 要求
+1. 保持主要角色的真实比例
+2. 保持统一的美术风格、光线方向和渲染质量
+3. 输出尺寸为 1280x720，适合视频生成`;
+
+        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        imagePath = tempImagePath;
+        imageSource = `主体合成`;
+        console.log(`[图生视频] ${storyboard.id}: 使用主体合成图片`);
+      }
+    }
+    
+    // 如果主体不可用，尝试只用场景
+    if (!imagePath && scenes.length > 0) {
+      const sceneIds = scenes.slice(0, 2);
+      let allScenesExist = true;
+      
+      for (const sceneId of sceneIds) {
+        if (!(await sceneManager.sceneExists(sceneId))) {
+          allScenesExist = false;
+          break;
+        }
+      }
+      
+      if (allScenesExist) {
+        const sceneImagePaths = sceneIds.map(id => sceneManager.getSceneImagePath(id));
+        const imageBase64Array = await imagesToBase64(sceneImagePaths);
+        
+        const composePrompt = `## 任务
+使用提供的场景图片构建画面，用于生成视频。
+
+## 输入
+- 场景：${sceneIds.join('，')}
+- 描述：${storyboard.description.substring(0, 200)}
+
+## 要求
+1. 参考场景图片的风格、色调和整体氛围
+2. 保持统一的美术风格和渲染质量
+3. 输出尺寸为 1280x720，适合视频生成`;
+
+        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        imagePath = tempImagePath;
+        imageSource = `场景合成`;
+        console.log(`[图生视频] ${storyboard.id}: 使用场景合成图片`);
+      }
+    }
+  }
+
+  if (imagePath) {
+    // 图生视频
     taskId = await provider.imageToVideo(
-      firstFramePath,
+      imagePath,
       storyboard.description,
       { 
         duration: storyboard.duration,
@@ -145,8 +385,7 @@ async function generateSingleVideo(
   // 轮询任务状态
   await pollTaskStatus(provider, taskId);
 
-  // 下载视频
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  // 下载视频（workspaceRoot 已在上面获取）
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
@@ -196,7 +435,9 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
 export async function generateSingleVideoFromClip(
   clipPath: string,
   providerManager: ProviderManager,
-  treeProvider: ResourceTreeProvider
+  treeProvider: ResourceTreeProvider,
+  subjectManager?: SubjectManager,
+  sceneManager?: SceneManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
@@ -227,6 +468,10 @@ export async function generateSingleVideoFromClip(
     if (!workspaceRoot) {
       throw new Error('无法获取工作区路径');
     }
+    
+    // 确保临时目录存在
+    const tempDir = path.join(workspaceRoot, 'assets', 'temp');
+    await ensureDir(tempDir);
     const expectedClipPath = path.join(workspaceRoot, 'assets', 'clips', `${storyboard.id}.mp4`);
     const clipExists = await fileExists(expectedClipPath);
 
@@ -247,15 +492,29 @@ export async function generateSingleVideoFromClip(
       {
         location: vscode.ProgressLocation.Notification,
         title: clipExists ? `重新生成视频: ${storyboard.title || storyboard.id}` : `生成视频: ${storyboard.title || storyboard.id}`,
-        cancellable: false
+        cancellable: true
       },
-      async (progress) => {
+      async (progress, token) => {
         progress.report({ message: '正在生成...' });
-        await generateSingleVideo(storyboard, provider);
-        const message = clipExists 
-          ? `✓ 视频重新生成完成: ${storyboard.title || storyboard.id}`
-          : `✓ 视频生成完成: ${storyboard.title || storyboard.id}`;
-        vscode.window.showInformationMessage(message);
+        
+        try {
+          await generateSingleVideo(storyboard, provider, subjectManager, sceneManager, parser);
+          
+          if (!token.isCancellationRequested) {
+            const message = clipExists 
+              ? `✓ 视频重新生成完成: ${storyboard.title || storyboard.id}`
+              : `✓ 视频生成完成: ${storyboard.title || storyboard.id}`;
+            vscode.window.showInformationMessage(message);
+          } else {
+            vscode.window.showWarningMessage('视频生成已取消');
+          }
+        } catch (error) {
+          if (!token.isCancellationRequested) {
+            throw error;
+          } else {
+            vscode.window.showWarningMessage('视频生成已取消');
+          }
+        }
         
         // 刷新资源树
         treeProvider.refresh();

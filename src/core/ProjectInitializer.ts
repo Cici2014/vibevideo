@@ -50,12 +50,14 @@ export class ProjectInitializer {
   private async createDirectories(rootPath: string): Promise<void> {
     const dirs = [
       'subjects',                  // 主体/角色目录
+      'scenes',                    // 场景目录
       'storyboards',
       'ref-img',                   // 参考图目录（用于生成首帧）
       'assets',
       'assets/clips',
       'assets/audio',
       'assets/references',
+      'assets/temp',               // 临时图片目录
       'first-frames',
       'output',
       '.vv-context'
@@ -80,13 +82,13 @@ export class ProjectInitializer {
     // .cursorrules
     await writeFile(
       path.join(rootPath, '.cursorrules'),
-      generateCursorRules()
+      await generateCursorRules()
     );
 
     // .clinerules
     await writeFile(
       path.join(rootPath, '.clinerules'),
-      generateClineRules()
+      await generateClineRules()
     );
 
     // .gitignore（添加敏感信息）
@@ -122,25 +124,25 @@ output/*.mp4
     // README.md
     await writeFile(
       path.join(contextDir, 'README.md'),
-      generateContextReadme()
+      await generateContextReadme()
     );
 
     // storyboard-guide.md
     await writeFile(
       path.join(contextDir, 'storyboard-guide.md'),
-      generateStoryboardGuide()
+      await generateStoryboardGuide()
     );
 
     // shot-guide.md
     await writeFile(
       path.join(contextDir, 'shot-guide.md'),
-      generateShotGuide()
+      await generateShotGuide()
     );
 
     // prompt-examples.md
     await writeFile(
       path.join(contextDir, 'prompt-examples.md'),
-      generatePromptExamples()
+      await generatePromptExamples()
     );
   }
 
@@ -152,7 +154,7 @@ output/*.mp4
     
     // 只有在不存在时才创建
     if (!(await fileExists(scriptPath))) {
-      await writeFile(scriptPath, generateExampleScript());
+      await writeFile(scriptPath, await generateExampleScript());
     }
   }
 

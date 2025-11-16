@@ -1,51 +1,224 @@
 /**
- * 生成初始帧命令
+ * 统一的首帧生成命令
+ * 智能选择策略：主体 > 参考图 > 提示词
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ProviderManager } from '../providers/ProviderManager';
+import { SubjectManager } from '../core/SubjectManager';
+import { SceneManager } from '../core/SceneManager';
+import { StoryboardParser } from '../core/StoryboardParser';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { Storyboard } from '../types';
 import { writeFile, readFile, fileExists, listFiles } from '../utils/fileSystem';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
 /**
- * 批量生成所有需要的初始帧
+ * 首帧生成策略
+ */
+enum FirstFrameStrategy {
+  SUBJECTS_AND_SCENES = 'subjects_and_scenes', // 使用主体和场景图片合成
+  SUBJECTS = 'subjects',        // 使用主体图片合成
+  SCENES = 'scenes',            // 使用场景图片合成
+  REFERENCE_IMAGES = 'reference', // 使用参考图片合成
+  TEXT_TO_IMAGE = 'text'         // 使用提示词文生图
+}
+
+/**
+ * 批量生成所有首帧（统一入口）
  */
 export async function generateAllFirstFrames(
   providerManager: ProviderManager,
-  treeProvider: ResourceTreeProvider
+  subjectManager: SubjectManager,
+  treeProvider: ResourceTreeProvider,
+  sceneManager?: SceneManager
 ): Promise<void> {
   try {
-    // 获取 Provider
     const provider = await providerManager.getProvider();
-
+    const parser = new StoryboardParser();
+    
     // 获取所有分镜
     const storyboards = await treeProvider.getAllStoryboards();
 
-    // 找出需要生成首帧的分镜
-    // 需要满足：有 firstFramePrompt 或 referenceImages，且还没有 firstFrame
-    const needFirstFrame = storyboards.filter(sb => 
-      !sb.firstFrame && (sb.firstFramePrompt || (sb.referenceImages && sb.referenceImages.length > 0))
-    );
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage('无法获取工作区路径');
+      return;
+    }
 
-    if (needFirstFrame.length === 0) {
+    // 找出可以生成首帧的分镜并确定策略
+    const canGenerateFirstFrame: Array<{ 
+      storyboard: Storyboard; 
+      exists: boolean;
+      strategy: FirstFrameStrategy;
+      subjects?: string[];
+      scenes?: string[];
+    }> = [];
+    
+    for (const sb of storyboards) {
+      // 读取分镜内容以提取主体和场景
+      const content = await readFile(sb.filePath);
+      const subjects = parser.extractSubjects(content);
+      const scenes = parser.extractScenes(content);
+      
+      // 确定生成策略（优先级：主体+场景 > 主体 > 场景 > 参考图 > 提示词）
+      let strategy: FirstFrameStrategy | undefined;
+      let effectiveSubjects: string[] | undefined;
+      let effectiveScenes: string[] | undefined;
+      
+      // 检查是否有主体和场景
+      if (subjects.length > 0 && scenes.length > 0 && sceneManager) {
+        // 检查主体和场景图片是否存在
+        let allSubjectsExist = true;
+        let allScenesExist = true;
+        const subjectIds = subjects.slice(0, 3); // 最多3个主体
+        const sceneIds = scenes.slice(0, 2); // 最多2个场景
+        
+        for (const subjectId of subjectIds) {
+          if (!(await subjectManager.subjectExists(subjectId))) {
+            allSubjectsExist = false;
+            break;
+          }
+        }
+        
+        for (const sceneId of sceneIds) {
+          if (!(await sceneManager.sceneExists(sceneId))) {
+            allScenesExist = false;
+            break;
+          }
+        }
+        
+        if (allSubjectsExist && allScenesExist) {
+          strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
+          effectiveSubjects = subjectIds;
+          effectiveScenes = sceneIds;
+        }
+      }
+      
+      // 如果主体+场景不可用，检查是否有主体
+      if (!strategy && subjects.length > 0) {
+        // 检查主体图片是否存在
+        let allSubjectsExist = true;
+        for (const subjectId of subjects.slice(0, 3)) { // 最多检查前3个
+          if (!(await subjectManager.subjectExists(subjectId))) {
+            allSubjectsExist = false;
+            break;
+          }
+        }
+        
+        if (allSubjectsExist) {
+          strategy = FirstFrameStrategy.SUBJECTS;
+          effectiveSubjects = subjects.slice(0, 3);
+        }
+      }
+      
+      // 如果主体不可用，检查是否有场景
+      if (!strategy && scenes.length > 0 && sceneManager) {
+        // 检查场景图片是否存在
+        let allScenesExist = true;
+        for (const sceneId of scenes.slice(0, 2)) { // 最多检查前2个
+          if (!(await sceneManager.sceneExists(sceneId))) {
+            allScenesExist = false;
+            break;
+          }
+        }
+        
+        if (allScenesExist) {
+          strategy = FirstFrameStrategy.SCENES;
+          effectiveScenes = scenes.slice(0, 2);
+        }
+      }
+      
+      // 如果没有主体或主体不存在，检查参考图
+      if (!strategy) {
+        const firstFrameMarkdown = await loadFirstFrameMarkdown(sb.id, workspaceRoot);
+        const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
+          firstFrameMarkdown?.content,
+          workspaceRoot
+        ) || (sb.referenceImages && sb.referenceImages.length > 0 ? sb.referenceImages.map(ref => {
+          if (path.isAbsolute(ref)) return ref;
+          return path.join(workspaceRoot, ref);
+        }) : []);
+        
+        if (referenceImages.length > 0) {
+          // 检查参考图文件是否存在
+          let allRefImagesExist = true;
+          for (const refImage of referenceImages) {
+            if (!(await fileExists(refImage))) {
+              allRefImagesExist = false;
+              break;
+            }
+          }
+          
+          if (allRefImagesExist) {
+            strategy = FirstFrameStrategy.REFERENCE_IMAGES;
+          }
+        }
+      }
+      
+      // 如果前两者都没有，检查提示词
+      if (!strategy) {
+        const firstFrameMarkdown = await loadFirstFrameMarkdown(sb.id, workspaceRoot);
+        const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
+          || sb.firstFramePrompt 
+          || sb.description;
+        
+        if (prompt && prompt.trim().length > 0) {
+          strategy = FirstFrameStrategy.TEXT_TO_IMAGE;
+        }
+      }
+      
+      // 如果找到了策略，添加到列表
+      if (strategy) {
+        const firstFramePath = path.join(workspaceRoot, 'first-frames', `${sb.id}.png`);
+        const exists = await fileExists(firstFramePath);
+        canGenerateFirstFrame.push({ 
+          storyboard: sb, 
+          exists,
+          strategy,
+          subjects: effectiveSubjects,
+          scenes: effectiveScenes
+        });
+      }
+    }
+
+    if (canGenerateFirstFrame.length === 0) {
       vscode.window.showInformationMessage(
-        '所有分镜都不需要生成首帧！\n\n提示：在分镜 Markdown 中添加 "生成首帧: 描述" 或 "参考图: ref-img/xxx.jpg" 来使用此功能。'
+        '没有可生成首帧的分镜！\n\n提示：\n' +
+        '1. 在分镜中添加主体（"- **主体**: 主体名称"）并生成主体图片\n' +
+        '2. 在分镜中添加参考图（"- **参考图**: ref-img/xxx.jpg"）\n' +
+        '3. 在分镜中添加提示词（"- **生成首帧**: 描述"）'
       );
       return;
     }
 
-    // 询问用户
-    const confirm = await vscode.window.showInformationMessage(
-      `将生成 ${needFirstFrame.length} 个初始帧，预计需要 ${Math.ceil(needFirstFrame.length * 0.5)} 分钟。是否继续？`,
-      '继续',
+    const existingFirstFrames = canGenerateFirstFrame.filter(item => item.exists);
+    const newFirstFrames = canGenerateFirstFrame.filter(item => !item.exists);
+
+    // 如果有已存在的首帧，提醒用户这是重新生成
+    let confirmMessage: string;
+    let confirmButton: string;
+    
+    if (existingFirstFrames.length > 0 && newFirstFrames.length > 0) {
+      confirmMessage = `将生成 ${canGenerateFirstFrame.length} 个首帧（其中 ${existingFirstFrames.length} 个将重新生成，${newFirstFrames.length} 个为新生成），预计需要 ${Math.ceil(canGenerateFirstFrame.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
+      confirmButton = '继续生成';
+    } else if (existingFirstFrames.length > 0) {
+      confirmMessage = `所有首帧都已生成。将重新生成 ${existingFirstFrames.length} 个首帧，预计需要 ${Math.ceil(existingFirstFrames.length * 0.5)} 分钟。\n\n⚠️ 重新生成将覆盖现有图片。是否继续？`;
+      confirmButton = '重新生成';
+    } else {
+      confirmMessage = `将生成 ${newFirstFrames.length} 个首帧，预计需要 ${Math.ceil(newFirstFrames.length * 0.5)} 分钟。是否继续？`;
+      confirmButton = '继续';
+    }
+
+    const confirm = await vscode.window.showWarningMessage(
+      confirmMessage,
+      confirmButton,
       '取消'
     );
 
-    if (confirm !== '继续') {
+    if (confirm !== confirmButton) {
       return;
     }
 
@@ -53,42 +226,99 @@ export async function generateAllFirstFrames(
     await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'Vibe Video - 生成初始帧',
-        cancellable: false
+        title: existingFirstFrames.length > 0 ? 'Vibe Video - 重新生成首帧' : 'Vibe Video - 生成首帧',
+        cancellable: true
       },
-      async (progress) => {
+      async (progress, token) => {
         let successCount = 0;
         let failCount = 0;
+        let cancelled = false;
 
-        for (let i = 0; i < needFirstFrame.length; i++) {
-          const sb = needFirstFrame[i];
-          progress.report({
-            message: `正在生成 ${i + 1}/${needFirstFrame.length}: ${sb.title}`,
-            increment: (100 / needFirstFrame.length)
-          });
+        // 并发控制：最多3个并发请求
+        const MAX_CONCURRENT = 3;
+        const runningTasks = new Set<Promise<void>>();
+        let currentIndex = 0;
 
-          try {
-            await generateSingleFirstFrame(sb, provider);
-            successCount++;
-          } catch (error) {
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            console.error(`生成首帧失败: ${sb.id}`, errorMsg);
-            vscode.window.showErrorMessage(`生成失败 [${sb.id}]: ${errorMsg}`);
-            failCount++;
+        const worker = async () => {
+          while (true) {
+            // 检查是否已取消
+            if (token.isCancellationRequested) {
+              cancelled = true;
+              break;
+            }
+
+            const index = currentIndex++;
+            if (index >= canGenerateFirstFrame.length) {
+              break;
+            }
+
+            const item = canGenerateFirstFrame[index];
+            const { storyboard: sb, exists, strategy, subjects } = item;
+            
+            // 再次检查取消状态
+            if (token.isCancellationRequested) {
+              cancelled = true;
+              break;
+            }
+
+            const actionText = exists ? '重新生成' : '生成';
+            const strategyText = strategy === FirstFrameStrategy.SUBJECTS ? '主体合成' 
+              : strategy === FirstFrameStrategy.REFERENCE_IMAGES ? '参考图合成'
+              : '文生图';
+            
+            progress.report({
+              message: `正在${actionText} ${index + 1}/${canGenerateFirstFrame.length}: ${sb.title} (${strategyText})`,
+              increment: 0
+            });
+
+            try {
+              await generateSingleFirstFrame(sb, provider, subjectManager, parser, strategy, item.subjects, sceneManager, item.scenes);
+              successCount++;
+            } catch (error) {
+              // 如果是取消错误，不记录为失败
+              if (token.isCancellationRequested) {
+                cancelled = true;
+                break;
+              }
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              console.error(`生成首帧失败: ${sb.id}`, errorMsg);
+              vscode.window.showErrorMessage(`生成失败 [${sb.title}]: ${errorMsg}`);
+              failCount++;
+            } finally {
+              progress.report({
+                message: `已完成 ${index + 1}/${canGenerateFirstFrame.length} (成功: ${successCount}, 失败: ${failCount})`,
+                increment: (100 / canGenerateFirstFrame.length)
+              });
+            }
           }
-        }
+        };
+
+        // 启动并发工作线程
+        const workerCount = Math.min(MAX_CONCURRENT, canGenerateFirstFrame.length);
+        await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
         // 显示结果
-        const message = `
-初始帧生成完成！
+        if (cancelled) {
+          const actionText = existingFirstFrames.length > 0 ? '重新生成' : '生成';
+          const message = `
+首帧${actionText}已取消
+✓ 已完成: ${successCount}
+✗ 失败: ${failCount}
+          `;
+          vscode.window.showWarningMessage(message);
+        } else {
+          const actionText = existingFirstFrames.length > 0 ? '重新生成' : '生成';
+          const message = `
+首帧${actionText}完成！
 ✓ 成功: ${successCount}
 ✗ 失败: ${failCount}
-        `;
+          `;
 
-        if (failCount === 0) {
-          vscode.window.showInformationMessage(message);
-        } else {
-          vscode.window.showWarningMessage(message);
+          if (failCount === 0) {
+            vscode.window.showInformationMessage(message);
+          } else {
+            vscode.window.showWarningMessage(message);
+          }
         }
 
         // 刷新视图
@@ -96,57 +326,387 @@ export async function generateAllFirstFrames(
       }
     );
   } catch (error) {
-    vscode.window.showErrorMessage(`生成初始帧失败: ${error}`);
+    vscode.window.showErrorMessage(`生成首帧失败: ${error}`);
   }
 }
 
 /**
- * 生成单个首帧
+ * 为单个分镜生成首帧（来自资源树右键）
+ */
+export async function generateFirstFrameForStoryboard(
+  storyboardPath: string,
+  providerManager: ProviderManager,
+  subjectManager: SubjectManager,
+  treeProvider: ResourceTreeProvider,
+  sceneManager?: SceneManager
+): Promise<void> {
+  try {
+    const provider = await providerManager.getProvider();
+    const parser = new StoryboardParser();
+    const storyboard = await parser.parseMarkdown(storyboardPath);
+    const content = await readFile(storyboard.filePath);
+    const subjects = parser.extractSubjects(content);
+    const scenes = parser.extractScenes(content);
+
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage('无法获取工作区路径');
+      return;
+    }
+
+    // 确定生成策略
+    let strategy: FirstFrameStrategy | undefined;
+    let effectiveSubjects: string[] | undefined;
+    let effectiveScenes: string[] | undefined;
+
+    // 检查主体和场景
+    if (subjects.length > 0 && scenes.length > 0 && sceneManager) {
+      let allSubjectsExist = true;
+      let allScenesExist = true;
+      const subjectIds = subjects.slice(0, 3);
+      const sceneIds = scenes.slice(0, 2);
+      
+      for (const subjectId of subjectIds) {
+        if (!(await subjectManager.subjectExists(subjectId))) {
+          allSubjectsExist = false;
+          break;
+        }
+      }
+      
+      for (const sceneId of sceneIds) {
+        if (!(await sceneManager.sceneExists(sceneId))) {
+          allScenesExist = false;
+          break;
+        }
+      }
+      
+      if (allSubjectsExist && allScenesExist) {
+        strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
+        effectiveSubjects = subjectIds;
+        effectiveScenes = sceneIds;
+      }
+    }
+
+    // 检查主体
+    if (!strategy && subjects.length > 0) {
+      let allSubjectsExist = true;
+      const effectiveSubjectIds = subjects.slice(0, 3);
+      for (const subjectId of effectiveSubjectIds) {
+        if (!(await subjectManager.subjectExists(subjectId))) {
+          allSubjectsExist = false;
+          break;
+        }
+      }
+      
+      if (allSubjectsExist) {
+        strategy = FirstFrameStrategy.SUBJECTS;
+        effectiveSubjects = effectiveSubjectIds;
+      }
+    }
+    
+    // 检查场景
+    if (!strategy && scenes.length > 0 && sceneManager) {
+      let allScenesExist = true;
+      const sceneIds = scenes.slice(0, 2);
+      for (const sceneId of sceneIds) {
+        if (!(await sceneManager.sceneExists(sceneId))) {
+          allScenesExist = false;
+          break;
+        }
+      }
+      
+      if (allScenesExist) {
+        strategy = FirstFrameStrategy.SCENES;
+        effectiveScenes = sceneIds;
+      }
+    }
+
+    // 检查参考图
+    if (!strategy) {
+      const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
+      const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
+        firstFrameMarkdown?.content,
+        workspaceRoot
+      ) || (storyboard.referenceImages && storyboard.referenceImages.length > 0 ? storyboard.referenceImages.map(ref => {
+        if (path.isAbsolute(ref)) return ref;
+        return path.join(workspaceRoot, ref);
+      }) : []);
+      
+      if (referenceImages.length > 0) {
+        let allRefImagesExist = true;
+        for (const refImage of referenceImages) {
+          if (!(await fileExists(refImage))) {
+            allRefImagesExist = false;
+            break;
+          }
+        }
+        
+        if (allRefImagesExist) {
+          strategy = FirstFrameStrategy.REFERENCE_IMAGES;
+        }
+      }
+    }
+
+    // 检查提示词
+    if (!strategy) {
+      const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
+      const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
+        || storyboard.firstFramePrompt 
+        || storyboard.description;
+      
+      if (prompt && prompt.trim().length > 0) {
+        strategy = FirstFrameStrategy.TEXT_TO_IMAGE;
+      }
+    }
+
+    if (!strategy) {
+      vscode.window.showWarningMessage(
+        `分镜「${storyboard.title}」无法生成首帧。\n\n提示：\n` +
+        '1. 添加主体（"- **主体**: 主体名称"）并生成主体图片\n' +
+        '2. 添加参考图（"- **参考图**: ref-img/xxx.jpg"）\n' +
+        '3. 添加提示词（"- **生成首帧**: 描述"）'
+      );
+      return;
+    }
+
+    // 检查首帧是否已存在
+    const firstFramePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
+    const exists = await fileExists(firstFramePath);
+
+    if (exists) {
+      const confirm = await vscode.window.showWarningMessage(
+        `首帧「${storyboard.title}」已存在，重新生成将覆盖现有图片。是否继续？`,
+        '重新生成',
+        '取消'
+      );
+
+      if (confirm !== '重新生成') {
+        return;
+      }
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: exists ? `重新生成首帧: ${storyboard.title}` : `生成首帧: ${storyboard.title}`,
+        cancellable: true
+      },
+      async (progress, token) => {
+        progress.report({ message: '正在生成...' });
+        
+        try {
+          await generateSingleFirstFrame(storyboard, provider, subjectManager, parser, strategy, effectiveSubjects, sceneManager, effectiveScenes);
+          
+          if (!token.isCancellationRequested) {
+            const message = exists 
+              ? `✓ 首帧重新生成完成: ${storyboard.title}`
+              : `✓ 首帧生成完成: ${storyboard.title}`;
+            vscode.window.showInformationMessage(message);
+          } else {
+            vscode.window.showWarningMessage('首帧生成已取消');
+          }
+        } catch (error) {
+          if (!token.isCancellationRequested) {
+            throw error;
+          } else {
+            vscode.window.showWarningMessage('首帧生成已取消');
+          }
+        }
+        
+        // 刷新资源树
+        treeProvider.refresh();
+      }
+    );
+  } catch (error) {
+    vscode.window.showErrorMessage(`生成首帧失败：${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * 生成单个首帧（统一实现）
  */
 async function generateSingleFirstFrame(
   storyboard: Storyboard,
-  provider: any
+  provider: any,
+  subjectManager: SubjectManager,
+  parser: StoryboardParser,
+  strategy: FirstFrameStrategy,
+  subjects?: string[],
+  sceneManager?: SceneManager,
+  scenes?: string[]
 ): Promise<void> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
 
-  // 1. 优先检查是否有首帧描述Markdown文件
+  // 加载首帧描述Markdown
   const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
-  let referenceImagePaths: string[] = [];
-  let prompt: string | undefined;
+  const description = storyboard.description;
 
-  if (firstFrameMarkdown) {
-    // 如果存在首帧描述Markdown文件，只使用其中的内容，不使用分镜脚本中的内容
-    const relativeMdPath = path.relative(workspaceRoot, firstFrameMarkdown.filePath).replace(/\\/g, '/');
-    console.log(`[生成首帧] ${storyboard.id}: 发现首帧描述Markdown: ${relativeMdPath}，将只使用首帧描述Markdown中的内容`);
+  let result: string; // taskId 或 imageUrl
+  let imageSourceType: string;
+
+  if (strategy === FirstFrameStrategy.SUBJECTS_AND_SCENES) {
+    // 策略1：使用主体和场景图片合成
+    if (!subjects || subjects.length === 0 || !scenes || scenes.length === 0 || !sceneManager) {
+      throw new Error('未提供主体或场景列表');
+    }
+
+    const effectiveSubjectIds = subjects.slice(0, 3); // 最多3个主体
+    const effectiveSceneIds = scenes.slice(0, 2); // 最多2个场景
+
+    // 检查主体和场景图片是否存在
+    const missingSubjects: string[] = [];
+    const missingScenes: string[] = [];
     
-    // 从首帧描述Markdown中提取参考图片
+    for (const subjectId of effectiveSubjectIds) {
+      if (!(await subjectManager.subjectExists(subjectId))) {
+        missingSubjects.push(subjectId);
+      }
+    }
+    
+    for (const sceneId of effectiveSceneIds) {
+      if (!(await sceneManager.sceneExists(sceneId))) {
+        missingScenes.push(sceneId);
+      }
+    }
+
+    if (missingSubjects.length > 0 || missingScenes.length > 0) {
+      const missing = [
+        ...(missingSubjects.length > 0 ? [`主体: ${missingSubjects.join(', ')}`] : []),
+        ...(missingScenes.length > 0 ? [`场景: ${missingScenes.join(', ')}`] : [])
+      ];
+      throw new Error(`图片不存在: ${missing.join('; ')}`);
+    }
+
+    const subjectImagePaths = effectiveSubjectIds.map(id =>
+      subjectManager.getSubjectImagePath(id)
+    );
+    const sceneImagePaths = effectiveSceneIds.map(id =>
+      sceneManager.getSceneImagePath(id)
+    );
+    const allImagePaths = [...subjectImagePaths, ...sceneImagePaths];
+    const imageBase64Array = await imagesToBase64(allImagePaths);
+    imageSourceType = `${effectiveSubjectIds.length} 个主体 + ${effectiveSceneIds.length} 个场景`;
+
+    const initialMoment = deriveInitialMoment(
+      firstFrameMarkdown?.content,
+      storyboard.firstFramePrompt,
+      description
+    );
+
+    const composePrompt = buildComposePromptWithSubjectsAndScenes(
+      effectiveSubjectIds, 
+      effectiveSceneIds, 
+      description, 
+      initialMoment
+    );
+    console.log(`[首帧生成] ${storyboard.id}: 使用主体+场景合成`);
+    console.log(`[首帧生成] 主体: ${effectiveSubjectIds.join(', ')}`);
+    console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
+    console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
+
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    
+  } else if (strategy === FirstFrameStrategy.SUBJECTS) {
+    // 策略1：使用主体图片合成
+    if (!subjects || subjects.length === 0) {
+      throw new Error('未提供主体列表');
+    }
+
+    const effectiveSubjectIds = subjects.slice(0, 3); // 最多3个主体
+    if (subjects.length > 3) {
+      console.warn(`[首帧生成] ${storyboard.id}: 使用了 ${subjects.length} 个主体，仅使用前 3 个`);
+    }
+
+    // 检查主体图片是否存在
+    const missingSubjects: string[] = [];
+    for (const subjectId of effectiveSubjectIds) {
+      if (!(await subjectManager.subjectExists(subjectId))) {
+        missingSubjects.push(subjectId);
+      }
+    }
+
+    if (missingSubjects.length > 0) {
+      throw new Error(`主体图片不存在: ${missingSubjects.join(', ')}`);
+    }
+
+    const subjectImagePaths = effectiveSubjectIds.map(id =>
+      subjectManager.getSubjectImagePath(id)
+    );
+    const imageBase64Array = await imagesToBase64(subjectImagePaths);
+    imageSourceType = `${effectiveSubjectIds.length} 个主体`;
+
+    const initialMoment = deriveInitialMoment(
+      firstFrameMarkdown?.content,
+      storyboard.firstFramePrompt,
+      description
+    );
+
+    const composePrompt = buildComposePromptWithSubjects(effectiveSubjectIds, description, initialMoment);
+    console.log(`[首帧生成] ${storyboard.id}: 使用主体合成`);
+    console.log(`[首帧生成] 主体: ${effectiveSubjectIds.join(', ')}`);
+    console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
+
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    
+  } else if (strategy === FirstFrameStrategy.SCENES) {
+    // 策略2：使用场景图片合成
+    if (!scenes || scenes.length === 0 || !sceneManager) {
+      throw new Error('未提供场景列表');
+    }
+
+    const effectiveSceneIds = scenes.slice(0, 2); // 最多2个场景
+    if (scenes.length > 2) {
+      console.warn(`[首帧生成] ${storyboard.id}: 使用了 ${scenes.length} 个场景，仅使用前 2 个`);
+    }
+
+    // 检查场景图片是否存在
+    const missingScenes: string[] = [];
+    for (const sceneId of effectiveSceneIds) {
+      if (!(await sceneManager.sceneExists(sceneId))) {
+        missingScenes.push(sceneId);
+      }
+    }
+
+    if (missingScenes.length > 0) {
+      throw new Error(`场景图片不存在: ${missingScenes.join(', ')}`);
+    }
+
+    const sceneImagePaths = effectiveSceneIds.map(id =>
+      sceneManager.getSceneImagePath(id)
+    );
+    const imageBase64Array = await imagesToBase64(sceneImagePaths);
+    imageSourceType = `${effectiveSceneIds.length} 个场景`;
+
+    const initialMoment = deriveInitialMoment(
+      firstFrameMarkdown?.content,
+      storyboard.firstFramePrompt,
+      description
+    );
+
+    const composePrompt = buildComposePromptWithScenes(effectiveSceneIds, description, initialMoment);
+    console.log(`[首帧生成] ${storyboard.id}: 使用场景合成`);
+    console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
+    console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
+
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    
+  } else if (strategy === FirstFrameStrategy.REFERENCE_IMAGES) {
+    // 策略2：使用参考图片合成
+    let referenceImagePaths: string[] = [];
+
+    // 优先从首帧描述Markdown中提取
     const markdownRefImages = extractReferenceImagesFromFirstFrameMarkdown(
-      firstFrameMarkdown.content,
+      firstFrameMarkdown?.content,
       workspaceRoot
     );
     
     if (markdownRefImages && markdownRefImages.length > 0) {
       referenceImagePaths = markdownRefImages;
-      console.log(`[生成首帧] 从首帧描述Markdown中提取到 ${referenceImagePaths.length} 张参考图`);
-    }
-    
-    // 从首帧描述Markdown中提取提示词
-    prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown.content);
-    if (prompt) {
-      console.log(`[生成首帧] 从首帧描述Markdown中提取到提示词`);
-    } else {
-      throw new Error('首帧描述Markdown文件中没有找到提示词（请添加"首帧提示"、"生成首帧"或"提示"字段，或提供正文内容）');
-    }
-  } else {
-    // 如果没有首帧描述Markdown文件，才使用分镜脚本中的内容
-    console.log(`[生成首帧] ${storyboard.id}: 未找到首帧描述Markdown文件，使用分镜脚本中的内容`);
-    
-    // 使用分镜脚本中的参考图
-    if (storyboard.referenceImages && storyboard.referenceImages.length > 0) {
-      // 将相对路径转换为绝对路径，并检查文件是否存在
+    } else if (storyboard.referenceImages && storyboard.referenceImages.length > 0) {
+      // 从分镜脚本中提取
       for (const refImage of storyboard.referenceImages) {
         let imagePath: string;
         if (path.isAbsolute(refImage)) {
@@ -154,64 +714,70 @@ async function generateSingleFirstFrame(
         } else {
           imagePath = path.join(workspaceRoot, refImage);
         }
-
-        // 检查文件是否存在
         if (!fs.existsSync(imagePath)) {
           throw new Error(`参考图不存在: ${refImage}`);
         }
         referenceImagePaths.push(imagePath);
       }
-      console.log(`[生成首帧] 从分镜脚本中提取到 ${referenceImagePaths.length} 张参考图`);
     }
 
-    // 使用分镜脚本中的提示词
-    prompt = storyboard.firstFramePrompt || storyboard.description;
-  }
+    if (referenceImagePaths.length === 0) {
+      throw new Error('未找到参考图片');
+    }
 
-  let result: string; // taskId 或 imageUrl
+    // 提取提示词
+    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
+      || storyboard.firstFramePrompt 
+      || description;
 
-  if (referenceImagePaths.length > 0) {
-    // 使用参考图 + 提示词生成（多图合成）
     if (!prompt) {
-      throw new Error('使用参考图时需要提供提示词（在首帧描述Markdown或分镜脚本中）');
+      throw new Error('使用参考图时需要提供提示词');
     }
 
-    console.log(`[参考图生成] ${storyboard.id}: 使用 ${referenceImagePaths.length} 张参考图`);
-    const relativePaths = referenceImagePaths.map(p => 
-      path.relative(workspaceRoot, p).replace(/\\/g, '/')
+    const imageBase64Array = await imagesToBase64(referenceImagePaths);
+    imageSourceType = `${referenceImagePaths.length} 张参考图片`;
+
+    const initialMoment = deriveInitialMoment(
+      firstFrameMarkdown?.content,
+      storyboard.firstFramePrompt,
+      description
     );
-    console.log(`[参考图生成] 参考图: ${relativePaths.join(', ')}`);
-    console.log(`[参考图生成] 提示词: ${prompt.substring(0, 100)}...`);
 
-    // 将多张参考图转换为 base64
-    const referenceImageBase64Array = await imagesToBase64(referenceImagePaths);
+    const composePrompt = buildComposePromptWithReferenceImage(prompt, initialMoment, referenceImagePaths.length);
+    console.log(`[首帧生成] ${storyboard.id}: 使用参考图合成`);
+    console.log(`[首帧生成] 参考图: ${referenceImagePaths.map(p => path.relative(workspaceRoot, p)).join(', ')}`);
+    console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    // 构建合成提示词（只使用首帧描述Markdown中的内容，不使用分镜脚本的description）
-    const composePrompt = buildReferenceImagePrompt(prompt, undefined, referenceImagePaths.length);
-
-    // 调用多图合成 API
-    result = await provider.client.composeMultipleImages(referenceImageBase64Array, composePrompt);
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    
   } else {
-    // 纯文生图（原有逻辑）
+    // 策略3：纯文生图
+    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
+      || storyboard.firstFramePrompt 
+      || description;
+
     if (!prompt) {
-      throw new Error('缺少提示词（请在首帧描述Markdown或分镜脚本中提供）');
+      throw new Error('缺少提示词');
     }
 
-    console.log(`[文生图] ${storyboard.id}: ${prompt.substring(0, 100)}...`);
+    imageSourceType = '文生图';
+    console.log(`[首帧生成] ${storyboard.id}: 文生图`);
+    console.log(`[首帧生成] 提示词: ${prompt.substring(0, 100)}...`);
+
     result = await provider.textToImage(prompt, {
-      size: '1280*720',  // 注意：DashScope 要求用 * 不是 x
+      size: '1280*720',
       style: 'realistic'
     });
   }
 
-  // 处理结果（可能是 taskId 或直接返回的 URL）
+  // 处理结果并保存
   const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
   
   if (result.startsWith('http')) {
-    // 同步模式：直接返回图片 URL，直接下载
+    // 同步模式：直接返回图片 URL
     await provider.client.downloadResource(result, savePath);
   } else {
-    // 异步模式：是 task_id，需要轮询后下载
+    // 异步模式：需要轮询
     await pollTaskStatus(provider, result);
     await provider.downloadResource(result, savePath);
   }
@@ -219,32 +785,165 @@ async function generateSingleFirstFrame(
   // 更新分镜 Markdown 文件
   await updateStoryboardWithFirstFrame(storyboard, savePath);
 
-  console.log(`✓ 首帧生成完成: ${storyboard.id}`);
+  console.log(`✓ 首帧生成完成: ${storyboard.id} (${imageSourceType})`);
 }
 
 /**
- * 构建参考图合成提示词
+ * 构建使用主体和场景的合成提示词
  */
-function buildReferenceImagePrompt(
+function buildComposePromptWithSubjectsAndScenes(
+  subjectIds: string[],
+  sceneIds: string[],
+  description: string,
+  initialMoment: string
+): string {
+  const subjectList = subjectIds.map((id, i) => `主体${i + 1}：${id}`).join('，');
+  const sceneList = sceneIds.map((id, i) => `场景${i + 1}：${id}`).join('，');
+
+  return `## 任务
+使用提供的主体图片和场景图片构建画面。
+
+## 输入
+- 主体：${subjectList}
+- 场景：${sceneList}
+- 场景描述：${initialMoment}
+
+## 要求
+### 必须遵守
+1. 将主体放置在场景中，保持主体的真实比例和外观特征
+2. 场景图片作为背景和环境参考，主体图片作为前景元素
+3. 保持统一的美术风格、光线方向和渲染质量
+4. 画面中禁止出现任何文字、字幕、Logo 或水印
+5. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
+6. 输出尺寸为 1280x720，适合视频首帧
+
+### 允许调整
+- 主体的姿势、表情、位置
+- 场景的光线、色调、细节
+- 主体与场景的融合效果
+
+### 禁止改变
+- 主体的外观特征（发型、服装、体型等）
+- 场景的整体风格和氛围`;
+}
+
+/**
+ * 构建使用主体的合成提示词
+ */
+function buildComposePromptWithSubjects(
+  subjectIds: string[],
+  description: string,
+  initialMoment: string
+): string {
+  const subjectList = subjectIds.map((id, i) => `图${i + 1}：${id}`).join('，');
+
+  return `## 任务
+使用提供的主体图片构建画面。
+
+## 输入
+- 主体：${subjectList}
+- 场景描述：${initialMoment}
+
+## 要求
+### 必须遵守
+1. 保持主要角色的真实比例
+2. 保持统一的美术风格、光线方向和渲染质量
+3. 画面中禁止出现任何文字、字幕、Logo 或水印
+4. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
+5. 输出尺寸为 1280x720，适合视频首帧
+
+### 允许调整
+- 背景、姿势、表情、光线
+- 禁止改变主要角色的发型`;
+}
+
+/**
+ * 构建使用场景的合成提示词
+ */
+function buildComposePromptWithScenes(
+  sceneIds: string[],
+  description: string,
+  initialMoment: string
+): string {
+  const sceneList = sceneIds.map((id, i) => `场景${i + 1}：${id}`).join('，');
+
+  return `## 任务
+使用提供的场景图片构建画面。
+
+## 输入
+- 场景：${sceneList}
+- 场景描述：${initialMoment}
+
+## 要求
+### 必须遵守
+1. 参考场景图片的风格、色调和整体氛围
+2. 保持统一的美术风格和渲染质量
+3. 画面中禁止出现任何文字、字幕、Logo 或水印
+4. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
+5. 输出尺寸为 1280x720，适合视频首帧
+
+### 允许调整
+- 根据描述调整场景细节、构图和光线
+- 融合多个场景的优点（如果提供了多个场景）`;
+}
+
+/**
+ * 构建使用参考图片的合成提示词
+ */
+function buildComposePromptWithReferenceImage(
   prompt: string,
-  description?: string,
+  initialMoment: string,
   imageCount: number = 1
 ): string {
-  let composePrompt = `请参考提供的${imageCount > 1 ? '多张' : ''}参考图片，生成符合以下描述的图像：\n\n`;
-  composePrompt += `描述：${prompt}\n`;
+  const isMultiple = imageCount > 1;
+  
+  return `## 任务
+参考提供的${isMultiple ? '多张' : ''}参考图片，生成符合描述的图像。
 
-  composePrompt += `\n要求：\n`;
-  if (imageCount > 1) {
-    composePrompt += `1. 综合参考所有图片的风格、色调和整体氛围。\n`;
-    composePrompt += `2. 根据描述调整场景、构图和细节，融合多张参考图的优点。\n`;
-  } else {
-    composePrompt += `1. 保持参考图的风格、色调和整体氛围。\n`;
-    composePrompt += `2. 根据描述调整场景、构图和细节，但保持风格一致性。\n`;
+## 输入
+- 场景描述：${prompt}
+- 参考图片：${isMultiple ? '多张' : '单张'}
+
+## 要求
+### 必须遵守
+1. ${isMultiple ? '综合参考所有图片的风格、色调和整体氛围' : '保持参考图的风格、色调和整体氛围'}
+2. 画面中禁止出现任何文字、字幕、Logo 或水印
+3. 输出尺寸为 1280x720，适合视频首帧
+
+### 允许调整
+- ${isMultiple ? '根据描述调整场景、构图和细节，融合多张参考图的优点' : '根据描述调整场景、构图和细节，但保持风格一致性'}`;
+}
+
+/**
+ * 从首帧提示或描述中提取初始瞬间
+ */
+function deriveInitialMoment(
+  firstFrameMarkdown: string | undefined,
+  firstFramePrompt: string | undefined,
+  description: string
+): string {
+  const normalizedMarkdown = normalizeFirstFrameMarkdown(firstFrameMarkdown);
+  if (normalizedMarkdown) {
+    return normalizedMarkdown;
   }
-  composePrompt += `3. 画面中禁止出现任何文字、字幕、Logo 或水印。\n`;
-  composePrompt += `4. 输出尺寸为 1280x720，适合视频首帧。`;
 
-  return composePrompt;
+  if (firstFramePrompt && firstFramePrompt.trim().length >= 12) {
+    return firstFramePrompt.trim();
+  }
+
+  if (!description) {
+    return '';
+  }
+
+  const normalized = description
+    .replace(/\s+/g, ' ')
+    .replace(/["""]/g, '')
+    .trim();
+
+  const sentences = normalized.split(/(?<=[。！？!?])/);
+  const initial = sentences.slice(0, 2).join('').trim();
+
+  return initial || normalized;
 }
 
 /**
@@ -254,21 +953,18 @@ async function updateStoryboardWithFirstFrame(
   storyboard: Storyboard,
   firstFramePath: string
 ): Promise<void> {
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
     return;
   }
 
-  // 读取原文件
   let content = await readFile(storyboard.filePath);
-
-  // 计算相对路径
   const relativePath = path.relative(workspaceRoot, firstFramePath).replace(/\\/g, '/');
 
-  // 移除原来的 "生成首帧" 行
+  // 移除旧的首帧行
+  content = content.replace(/^[*-]\s*\*?\*?首帧\*?\*?[：:].*$/im, '');
   content = content.replace(/^[*-]\s*\*?\*?生成首帧\*?\*?[：:].*$/im, '');
 
-  // 添加 "首帧" 行
   // 在第一个 # 标题后插入
   const lines = content.split('\n');
   const titleIndex = lines.findIndex(line => line.trim().startsWith('#'));
@@ -277,11 +973,9 @@ async function updateStoryboardWithFirstFrame(
     lines.splice(titleIndex + 1, 0, '', `- **首帧**: ${relativePath}`);
     content = lines.join('\n');
   } else {
-    // 如果没有标题，在开头添加
     content = `- **首帧**: ${relativePath}\n\n${content}`;
   }
 
-  // 保存文件
   await writeFile(storyboard.filePath, content);
 }
 
@@ -459,7 +1153,6 @@ function extractPromptFromFirstFrameMarkdown(content: string | undefined): strin
   }
 
   // 如果没有找到明确的提示字段，尝试提取整个Markdown的正文内容作为提示词
-  // 去掉frontmatter、标题、元数据行等
   let normalized = content
     .replace(/^---[\s\S]*?---/gm, '') // 去掉frontmatter
     .replace(/^#.*$/m, '') // 去掉标题
@@ -474,3 +1167,28 @@ function extractPromptFromFirstFrameMarkdown(content: string | undefined): strin
   return undefined;
 }
 
+/**
+ * 规范化首帧描述Markdown内容
+ */
+function normalizeFirstFrameMarkdown(content?: string): string | undefined {
+  if (!content) {
+    return undefined;
+  }
+
+  const cleaned = content
+    .replace(/\r/g, '')
+    .replace(/^---[\s\S]*?---/gm, '')
+    .split('\n')
+    .map(line =>
+      line
+        .replace(/^[#>\s]*/g, '')
+        .replace(/^[-*]\s*/, '')
+        .replace(/^\d+\.\s*/, '')
+        .replace(/\*\*/g, '')
+        .trim()
+    )
+    .filter(Boolean)
+    .join(' ');
+
+  return cleaned.length > 0 ? cleaned : undefined;
+}

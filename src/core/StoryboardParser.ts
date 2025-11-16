@@ -204,6 +204,29 @@ export class StoryboardParser {
   }
 
   /**
+   * 提取场景ID列表（- **场景**: 场景1, 场景2）
+   */
+  extractScenes(content: string): string[] {
+    const patterns = [
+      /[*-]\s*\*?\*?场景\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?scenes?\*?\*?[：:]\s*(.+)$/im,
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        // 分割：场景1, 场景2, 场景3
+        return match[1]
+          .split(/[,，、]/)
+          .map(s => s.trim())
+          .filter(s => s.length > 0);
+      }
+    }
+
+    return [];
+  }
+
+  /**
    * 提取构图描述
    */
   extractLayout(content: string): string | undefined {

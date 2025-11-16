@@ -20,7 +20,7 @@ export class ResourceTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'clip' | 'stats' | 'subject' | 'referenceImage' | 'script',
+    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'clip' | 'stats' | 'subject' | 'scene' | 'referenceImage' | 'script',
     public readonly resourcePath?: string,
     public readonly quality?: 'excellent' | 'good' | 'fair' | 'needs-improvement',
     public readonly relatedPaths?: FirstFrameResourcePaths
@@ -82,6 +82,17 @@ export class ResourceTreeItem extends vscode.TreeItem {
         this.command = {
           command: 'vibevideo.openSubjectResource',
           title: '打开主体资源',
+          arguments: [this]
+        };
+      }
+    } else if (resourceType === 'scene') {
+      this.iconPath = new vscode.ThemeIcon('symbol-color');
+      this.contextValue = 'scene';
+      // 如果有资源路径或相关路径，设置打开命令
+      if (resourcePath || relatedPaths) {
+        this.command = {
+          command: 'vibevideo.openSceneResource',
+          title: '打开场景资源',
           arguments: [this]
         };
       }
@@ -173,13 +184,34 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       return [
         new ResourceTreeItem('📊 项目信息', vscode.TreeItemCollapsibleState.Collapsed),
         new ResourceTreeItem('📄 剧本', vscode.TreeItemCollapsibleState.Collapsed),
-        new ResourceTreeItem('🎭 主体', vscode.TreeItemCollapsibleState.Collapsed),
-        new ResourceTreeItem('📸 参考图', vscode.TreeItemCollapsibleState.Collapsed),
+        (() => {
+          const referenceImagesRoot = new ResourceTreeItem('📸 参考图', vscode.TreeItemCollapsibleState.Collapsed);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"添加图片"内联按钮
+          referenceImagesRoot.contextValue = 'referenceImagesRoot';
+          return referenceImagesRoot;
+        })(),
+        (() => {
+          const subjectsRoot = new ResourceTreeItem('🎭 主体', vscode.TreeItemCollapsibleState.Collapsed);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部"内联按钮
+          subjectsRoot.contextValue = 'subjectsRoot';
+          return subjectsRoot;
+        })(),
+        (() => {
+          const scenesRoot = new ResourceTreeItem('🌆 场景', vscode.TreeItemCollapsibleState.Collapsed);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部"内联按钮
+          scenesRoot.contextValue = 'scenesRoot';
+          return scenesRoot;
+        })(),
+        (() => {
+          const firstFramesRoot = new ResourceTreeItem('🖼️ 分镜首帧', vscode.TreeItemCollapsibleState.Collapsed);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部"内联按钮
+          firstFramesRoot.contextValue = 'firstFramesRoot';
+          return firstFramesRoot;
+        })(),
         new ResourceTreeItem('📝 分镜脚本', vscode.TreeItemCollapsibleState.Expanded),
-        new ResourceTreeItem('🖼️ 分镜首帧', vscode.TreeItemCollapsibleState.Collapsed),
         (() => {
           const clipsRoot = new ResourceTreeItem('🎬 视频片段', vscode.TreeItemCollapsibleState.Collapsed);
-          // 为分组节点设置 contextValue，以便在该分组右侧显示“生成全部”内联按钮
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部"内联按钮
           clipsRoot.contextValue = 'clipsRoot';
           return clipsRoot;
         })()
@@ -195,6 +227,8 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       return await this.getStoryboardItems();
     } else if (element.label.startsWith('🎭')) {
       return await this.getSubjectItems();
+    } else if (element.label.startsWith('🌆')) {
+      return await this.getSceneItems();
     } else if (element.label.startsWith('📸')) {
       return await this.getReferenceImageItems();
     } else if (element.label.startsWith('🖼️')) {
@@ -372,19 +406,6 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     const items: ResourceTreeItem[] = [];
 
-    // 添加"生成所有主体图片"按钮
-    const generateButton = new ResourceTreeItem(
-      '✨ 生成所有主体图片',
-      vscode.TreeItemCollapsibleState.None
-    );
-    generateButton.iconPath = new vscode.ThemeIcon('sync');
-    generateButton.command = {
-      command: 'vibevideo.generateSubjects',
-      title: '生成所有主体图片'
-    };
-    generateButton.tooltip = '点击生成所有未生成的主体图片';
-    items.push(generateButton);
-
     if (resourceMap.size === 0) {
       items.push(
         new ResourceTreeItem(
@@ -412,6 +433,87 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
           label,
           vscode.TreeItemCollapsibleState.None,
           'subject',
+          entry.md ?? entry.png, // 主要路径
+          undefined, // quality
+          {
+            markdown: entry.md,
+            image: entry.png
+          }
+        )
+      );
+    }
+
+    return items;
+  }
+
+  /**
+   * 获取场景列表
+   */
+  private async getSceneItems(): Promise<ResourceTreeItem[]> {
+    const scenesDir = path.join(this.workspaceRoot!, 'scenes');
+    const [mdFiles, pngFiles] = await Promise.all([
+      listFiles(scenesDir, '.md'),
+      listFiles(scenesDir, '.png')
+    ]);
+
+    const resourceMap = new Map<
+      string,
+      {
+        displayName: string;
+        md?: string;
+        png?: string;
+      }
+    >();
+
+    const addFile = (file: string, type: 'md' | 'png') => {
+      const fileName = path.basename(file, path.extname(file));
+      const existing = resourceMap.get(fileName) || {
+        displayName: fileName
+      };
+      if (type === 'md') {
+        existing.md = file;
+        existing.displayName = fileName; // 优先使用描述名
+      } else {
+        existing.png = file;
+        if (!existing.md) {
+          existing.displayName = fileName;
+        }
+      }
+      resourceMap.set(fileName, existing);
+    };
+
+    mdFiles.forEach(file => addFile(file, 'md'));
+    pngFiles.forEach(file => addFile(file, 'png'));
+
+    const items: ResourceTreeItem[] = [];
+
+    if (resourceMap.size === 0) {
+      items.push(
+        new ResourceTreeItem(
+          '暂无场景',
+          vscode.TreeItemCollapsibleState.None
+        )
+      );
+      return items;
+    }
+
+    const sortedEntries = Array.from(resourceMap.entries()).sort((a, b) =>
+      a[1].displayName.localeCompare(b[1].displayName, 'zh-CN')
+    );
+
+    for (const [, entry] of sortedEntries) {
+      const markers = [
+        entry.md ? '📝' : '',
+        entry.png ? '🖼️' : ''
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const label = markers ? `${entry.displayName} ${markers}` : entry.displayName;
+      items.push(
+        new ResourceTreeItem(
+          label,
+          vscode.TreeItemCollapsibleState.None,
+          'scene',
           entry.md ?? entry.png, // 主要路径
           undefined, // quality
           {
@@ -469,19 +571,6 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     ]);
 
     const items: ResourceTreeItem[] = [];
-
-    // 添加“生成所有首帧图片”按钮
-    const generateButton = new ResourceTreeItem(
-      '✨ 生成所有首帧图片',
-      vscode.TreeItemCollapsibleState.None
-    );
-    generateButton.iconPath = new vscode.ThemeIcon('sync');
-    generateButton.command = {
-      command: 'vibevideo.generateFirstFrames',
-      title: '生成所有首帧图片'
-    };
-    generateButton.tooltip = '点击生成所有未生成的分镜首帧图片';
-    items.push(generateButton);
 
     const resourceMap = new Map<
       string,

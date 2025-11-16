@@ -1,13 +1,13 @@
 /**
- * 主体/角色管理器
- * 管理 subjects/ 目录中的主体文件
+ * 场景管理器
+ * 管理 scenes/ 目录中的场景文件
  */
 
 import * as path from 'path';
-import { Subject } from '../types';
+import { Scene } from '../types';
 import { listFiles, fileExists, readFile } from '../utils/fileSystem';
 
-export class SubjectManager {
+export class SceneManager {
   private workspaceRoot: string;
 
   constructor(workspaceRoot: string) {
@@ -15,13 +15,13 @@ export class SubjectManager {
   }
 
   /**
-   * 发现所有主体
+   * 发现所有场景
    */
-  async discoverSubjects(): Promise<Subject[]> {
-    const subjectsDir = path.join(this.workspaceRoot, 'subjects');
-    const mdFiles = await listFiles(subjectsDir, '.md');
+  async discoverScenes(): Promise<Scene[]> {
+    const scenesDir = path.join(this.workspaceRoot, 'scenes');
+    const mdFiles = await listFiles(scenesDir, '.md');
 
-    const subjects: Subject[] = [];
+    const scenes: Scene[] = [];
 
     for (const mdPath of mdFiles) {
       const id = path.basename(mdPath, '.md');
@@ -40,10 +40,10 @@ export class SubjectManager {
         // 去掉元数据行（- ** 开头的）
         prompt = prompt.replace(/^[*-]\s*\*\*.*\*\*[：:].*$/gm, '').trim();
       } catch (error) {
-        console.error(`读取主体文件失败: ${mdPath}`, error);
+        console.error(`读取场景文件失败: ${mdPath}`, error);
       }
 
-      subjects.push({
+      scenes.push({
         id,
         name: id,
         mdPath,
@@ -54,38 +54,38 @@ export class SubjectManager {
       });
     }
 
-    return subjects.sort((a, b) => a.id.localeCompare(b.id));
+    return scenes.sort((a, b) => a.id.localeCompare(b.id));
   }
 
   /**
-   * 获取需要生成的主体（有 .md 但没有 .png）
+   * 获取需要生成的场景（有 .md 但没有 .png）
    */
-  async getSubjectsToGenerate(): Promise<Subject[]> {
-    const allSubjects = await this.discoverSubjects();
-    return allSubjects.filter(s => !s.exists && s.prompt.length > 0);
+  async getScenesToGenerate(): Promise<Scene[]> {
+    const allScenes = await this.discoverScenes();
+    return allScenes.filter(s => !s.exists && s.prompt.length > 0);
   }
 
   /**
-   * 获取单个主体
+   * 获取单个场景
    */
-  async getSubject(id: string): Promise<Subject | undefined> {
-    const subjects = await this.discoverSubjects();
-    return subjects.find(s => s.id === id);
+  async getScene(id: string): Promise<Scene | undefined> {
+    const scenes = await this.discoverScenes();
+    return scenes.find(s => s.id === id);
   }
 
   /**
-   * 检查主体图片是否存在
+   * 检查场景图片是否存在
    */
-  async subjectExists(id: string): Promise<boolean> {
-    const imagePath = path.join(this.workspaceRoot, 'subjects', `${id}.png`);
+  async sceneExists(id: string): Promise<boolean> {
+    const imagePath = path.join(this.workspaceRoot, 'scenes', `${id}.png`);
     return await fileExists(imagePath);
   }
 
   /**
-   * 获取主体图片的绝对路径
+   * 获取场景图片的绝对路径
    */
-  getSubjectImagePath(id: string): string {
-    return path.join(this.workspaceRoot, 'subjects', `${id}.png`);
+  getSceneImagePath(id: string): string {
+    return path.join(this.workspaceRoot, 'scenes', `${id}.png`);
   }
 
   /**
