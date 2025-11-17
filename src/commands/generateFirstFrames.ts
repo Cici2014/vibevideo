@@ -152,11 +152,9 @@ export async function generateAllFirstFrames(
         }
       }
       
-      // 3. 如果都没有明确指定，使用文生图
+      // 3. 如果都没有明确指定，使用文生图（仅使用首帧描述中的提示词）
       if (!strategy) {
-        const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
-          || sb.firstFramePrompt 
-          || sb.description;
+        const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content);
         
         if (prompt && prompt.trim().length > 0) {
           strategy = FirstFrameStrategy.TEXT_TO_IMAGE;
@@ -438,11 +436,9 @@ export async function generateFirstFrameForStoryboard(
       }
     }
 
-    // 3. 如果都没有明确指定，使用文生图
+    // 3. 如果都没有明确指定，使用文生图（仅使用首帧描述中的提示词）
     if (!strategy) {
-      const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
-        || storyboard.firstFramePrompt 
-        || storyboard.description;
+      const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content);
       
       if (prompt && prompt.trim().length > 0) {
         strategy = FirstFrameStrategy.TEXT_TO_IMAGE;
@@ -533,7 +529,6 @@ async function generateSingleFirstFrame(
 
   // 加载首帧描述Markdown
   const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
-  const description = storyboard.description;
 
   let result: string; // taskId 或 imageUrl
   let imageSourceType: string;
@@ -581,16 +576,14 @@ async function generateSingleFirstFrame(
     const imageBase64Array = await imagesToBase64(allImagePaths);
     imageSourceType = `${effectiveSubjectIds.length} 个主体 + ${effectiveSceneIds.length} 个场景`;
 
-    const initialMoment = deriveInitialMoment(
-      firstFrameMarkdown?.content,
-      storyboard.firstFramePrompt,
-      description
-    );
+    const initialMoment = deriveInitialMoment(firstFrameMarkdown?.content);
+    // 使用首帧描述作为场景描述
+    const sceneDescription = initialMoment || '';
 
     const composePrompt = buildComposePromptWithSubjectsAndScenes(
       effectiveSubjectIds, 
       effectiveSceneIds, 
-      description, 
+      sceneDescription, 
       initialMoment
     );
     console.log(`[首帧生成] ${storyboard.id}: 使用主体+场景合成`);
@@ -629,13 +622,11 @@ async function generateSingleFirstFrame(
     const imageBase64Array = await imagesToBase64(subjectImagePaths);
     imageSourceType = `${effectiveSubjectIds.length} 个主体`;
 
-    const initialMoment = deriveInitialMoment(
-      firstFrameMarkdown?.content,
-      storyboard.firstFramePrompt,
-      description
-    );
+    const initialMoment = deriveInitialMoment(firstFrameMarkdown?.content);
+    // 使用首帧描述作为场景描述
+    const sceneDescription = initialMoment || '';
 
-    const composePrompt = buildComposePromptWithSubjects(effectiveSubjectIds, description, initialMoment);
+    const composePrompt = buildComposePromptWithSubjects(effectiveSubjectIds, sceneDescription, initialMoment);
     console.log(`[首帧生成] ${storyboard.id}: 使用主体合成`);
     console.log(`[首帧生成] 主体: ${effectiveSubjectIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
@@ -671,13 +662,11 @@ async function generateSingleFirstFrame(
     const imageBase64Array = await imagesToBase64(sceneImagePaths);
     imageSourceType = `${effectiveSceneIds.length} 个场景`;
 
-    const initialMoment = deriveInitialMoment(
-      firstFrameMarkdown?.content,
-      storyboard.firstFramePrompt,
-      description
-    );
+    const initialMoment = deriveInitialMoment(firstFrameMarkdown?.content);
+    // 使用首帧描述作为场景描述
+    const sceneDescription = initialMoment || '';
 
-    const composePrompt = buildComposePromptWithScenes(effectiveSceneIds, description, initialMoment);
+    const composePrompt = buildComposePromptWithScenes(effectiveSceneIds, sceneDescription, initialMoment);
     console.log(`[首帧生成] ${storyboard.id}: 使用场景合成`);
     console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
@@ -685,54 +674,27 @@ async function generateSingleFirstFrame(
     result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
     
   } else if (strategy === FirstFrameStrategy.REFERENCE_IMAGES) {
-    // 策略2：使用参考图片合成
-    let referenceImagePaths: string[] = [];
-
-    // 优先从首帧描述Markdown中提取
-    const markdownRefImages = extractReferenceImagesFromFirstFrameMarkdown(
+    // 策略2：使用参考图片合成（仅使用首帧描述中的内容）
+    const referenceImagePaths = extractReferenceImagesFromFirstFrameMarkdown(
       firstFrameMarkdown?.content,
       workspaceRoot
     );
-    
-    if (markdownRefImages && markdownRefImages.length > 0) {
-      referenceImagePaths = markdownRefImages;
-    } else if (storyboard.referenceImages && storyboard.referenceImages.length > 0) {
-      // 从分镜脚本中提取
-      for (const refImage of storyboard.referenceImages) {
-        let imagePath: string;
-        if (path.isAbsolute(refImage)) {
-          imagePath = refImage;
-        } else {
-          imagePath = path.join(workspaceRoot, refImage);
-        }
-        if (!fs.existsSync(imagePath)) {
-          throw new Error(`参考图不存在: ${refImage}`);
-        }
-        referenceImagePaths.push(imagePath);
-      }
-    }
 
-    if (referenceImagePaths.length === 0) {
+    if (!referenceImagePaths || referenceImagePaths.length === 0) {
       throw new Error('未找到参考图片');
     }
 
-    // 提取提示词
-    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
-      || storyboard.firstFramePrompt 
-      || description;
+    // 提取提示词（仅使用首帧描述中的提示词）
+    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content);
 
     if (!prompt) {
-      throw new Error('使用参考图时需要提供提示词');
+      throw new Error('使用参考图时需要提供提示词（请在首帧描述中添加"首帧提示"字段）');
     }
 
     const imageBase64Array = await imagesToBase64(referenceImagePaths);
     imageSourceType = `${referenceImagePaths.length} 张参考图片`;
 
-    const initialMoment = deriveInitialMoment(
-      firstFrameMarkdown?.content,
-      storyboard.firstFramePrompt,
-      description
-    );
+    const initialMoment = deriveInitialMoment(firstFrameMarkdown?.content);
 
     const composePrompt = buildComposePromptWithReferenceImage(prompt, initialMoment, referenceImagePaths.length);
     console.log(`[首帧生成] ${storyboard.id}: 使用参考图合成`);
@@ -742,13 +704,11 @@ async function generateSingleFirstFrame(
     result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
     
   } else {
-    // 策略3：纯文生图
-    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
-      || storyboard.firstFramePrompt 
-      || description;
+    // 策略3：纯文生图（仅使用首帧描述中的提示词）
+    const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content);
 
     if (!prompt) {
-      throw new Error('缺少提示词');
+      throw new Error('缺少提示词（请在首帧描述中添加"首帧提示"字段）');
     }
 
     imageSourceType = '文生图';
@@ -907,35 +867,16 @@ function buildComposePromptWithReferenceImage(
 }
 
 /**
- * 从首帧提示或描述中提取初始瞬间
+ * 从首帧描述中提取初始瞬间（仅使用首帧描述的内容）
  */
-function deriveInitialMoment(
-  firstFrameMarkdown: string | undefined,
-  firstFramePrompt: string | undefined,
-  description: string
-): string {
+function deriveInitialMoment(firstFrameMarkdown: string | undefined): string {
   const normalizedMarkdown = normalizeFirstFrameMarkdown(firstFrameMarkdown);
   if (normalizedMarkdown) {
     return normalizedMarkdown;
   }
 
-  if (firstFramePrompt && firstFramePrompt.trim().length >= 12) {
-    return firstFramePrompt.trim();
-  }
-
-  if (!description) {
-    return '';
-  }
-
-  const normalized = description
-    .replace(/\s+/g, ' ')
-    .replace(/["""]/g, '')
-    .trim();
-
-  const sentences = normalized.split(/(?<=[。！？!?])/);
-  const initial = sentences.slice(0, 2).join('').trim();
-
-  return initial || normalized;
+  // 如果没有首帧描述，返回空字符串
+  return '';
 }
 
 /**
