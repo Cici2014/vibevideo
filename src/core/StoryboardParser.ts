@@ -22,9 +22,14 @@ export class StoryboardParser {
     const firstFrame = this.extractFirstFrame(content);
     const firstFramePrompt = this.extractFirstFramePrompt(content);
     const referenceImages = this.extractReferenceImages(content);
+    const videoPrompt = this.extractVideoPrompt(content);
 
-    // 提取描述
-    const description = this.extractDescription(content);
+    // 提取描述（优先使用提示词字段，如果没有提示词则使用正文内容）
+    let description = this.extractDescription(content);
+    // 如果描述为空或太短，且存在视频提示词，则使用视频提示词作为描述
+    if ((!description || description.trim().length < 20) && videoPrompt) {
+      description = videoPrompt;
+    }
 
     return {
       id: fileName,
@@ -33,6 +38,7 @@ export class StoryboardParser {
       duration,
       firstFrame,
       firstFramePrompt,
+      videoPrompt,
       referenceImages,
       filePath
     };
@@ -106,12 +112,54 @@ export class StoryboardParser {
   }
 
   /**
+   * 提取视频提示词（用于图生视频）
+   * 支持格式：- **提示词**: 内容 或 - **视频提示词**: 内容
+   */
+  private extractVideoPrompt(content: string): string | undefined {
+    // 先尝试提取"视频提示词"字段
+    const videoPromptPatterns = [
+      /[*-]\s*\*?\*?视频提示词\*?\*?[：:]\s*(.+?)(?=\n[*-]|\n\n|$)/ims,
+      /[*-]\s*\*?\*?videoPrompt\*?\*?[：:]\s*(.+?)(?=\n[*-]|\n\n|$)/ims,
+    ];
+
+    for (const pattern of videoPromptPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    // 如果没有找到"视频提示词"，尝试提取"提示词"字段（可能包含视频和声音提示词）
+    const promptPatterns = [
+      /[*-]\s*\*?\*?提示词\*?\*?[：:]\s*(.+?)(?=\n[*-]|\n\n|$)/ims,
+      /[*-]\s*\*?\*?prompt\*?\*?[：:]\s*(.+?)(?=\n[*-]|\n\n|$)/ims,
+    ];
+
+    for (const pattern of promptPatterns) {
+      const match = content.match(pattern);
+      if (match) {
+        const promptText = match[1].trim();
+        // 如果提示词中包含"视频提示词："，提取视频提示词部分
+        const videoMatch = promptText.match(/视频提示词[：:]\s*(.+?)(?=\n\s*[-*]|声音提示词|$)/is);
+        if (videoMatch) {
+          return videoMatch[1].trim();
+        }
+        // 否则返回整个提示词（可能同时包含视频和声音）
+        return promptText;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
    * 提取参考图路径（支持多张，逗号分隔）
+   * 支持字段：参考图片、参考图、referenceImage、referenceImages、ref-img
    */
   private extractReferenceImages(content: string): string[] | undefined {
     const patterns = [
-      /[*-]\s*\*?\*?参考图\*?\*?[：:]\s*(.+)$/im,
       /[*-]\s*\*?\*?参考图片\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?参考图\*?\*?[：:]\s*(.+)$/im,
       /[*-]\s*\*?\*?referenceImage\*?\*?[：:]\s*(.+)$/im,
       /[*-]\s*\*?\*?referenceImages\*?\*?[：:]\s*(.+)$/im,
       /[*-]\s*\*?\*?ref-img\*?\*?[：:]\s*(.+)$/im,
@@ -120,11 +168,12 @@ export class StoryboardParser {
     for (const pattern of patterns) {
       const match = content.match(pattern);
       if (match) {
-        // 分割多个路径（支持逗号、中文逗号、空格分隔）
-        const paths = match[1]
-          .split(/[,，\s]+/)
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
+        // 分割多个路径（只使用逗号、中文逗号分隔，不使用空格，因为路径中可能包含空格）
+        const rawValue = match[1].trim();
+        // 如果包含逗号或中文逗号，才进行分割；否则作为单个路径处理
+        const paths = rawValue.includes(',') || rawValue.includes('，')
+          ? rawValue.split(/[,，]+/).map(s => s.trim()).filter(s => s.length > 0)
+          : [rawValue];
         return paths.length > 0 ? paths : undefined;
       }
     }

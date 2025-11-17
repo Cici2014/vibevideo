@@ -646,7 +646,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
    * 获取视频片段列表
    */
   private async getClipItems(): Promise<ResourceTreeItem[]> {
-    const clipsDir = path.join(this.workspaceRoot!, 'assets', 'clips');
+    const clipsDir = path.join(this.workspaceRoot!, 'video-clip');
     const files = await listFiles(clipsDir, '.mp4');
 
     if (files.length === 0) {
@@ -681,7 +681,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     const firstFramesDir = path.join(this.workspaceRoot!, 'first-frames');
     const firstFrames = await listFiles(firstFramesDir, '.png');
     
-    const clipsDir = path.join(this.workspaceRoot!, 'assets', 'clips');
+    const clipsDir = path.join(this.workspaceRoot!, 'video-clip');
     const clips = await listFiles(clipsDir, '.mp4');
 
     return [

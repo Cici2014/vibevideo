@@ -206,15 +206,27 @@
           "markdownDescription": "DashScope API Key\n\n[点击获取 API Key](https://bailian.console.aliyun.com/)",
           "order": 2
         },
+        "vibevideo.dashscope.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "自定义 API 基础 URL（用于本地部署模型），留空则使用阿里云 DashScope。例如：http://localhost:8000/v1/services/aigc",
+          "markdownDescription": "自定义 API 基础 URL（用于本地部署模型）\n\n留空则使用阿里云 DashScope 官方服务。\n\n示例：`http://localhost:8000/v1/services/aigc`",
+          "order": 3
+        },
         "vibevideo.video.resolution": {
           "type": "string",
-          "default": "1280*720",
+          "default": "720P",
           "enum": [
-            "1280*720",
-            "1920*1080",
-            "832*480"
+            "480P",
+            "720P",
+            "1080P"
           ],
-          "description": "视频分辨率（DashScope 格式：width*height）",
+          "enumDescriptions": [
+            "480P - 低质量，生成快，文件小",
+            "720P - 平衡质量 ⭐ 推荐",
+            "1080P - 高质量，生成慢，文件大"
+          ],
+          "description": "视频分辨率（DashScope 官方档位）",
           "order": 4
         },
         "vibevideo.video.defaultDuration": {

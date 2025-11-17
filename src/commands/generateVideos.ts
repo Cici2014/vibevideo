@@ -10,6 +10,7 @@ import { Storyboard } from '../types';
 import { StoryboardParser } from '../core/StoryboardParser';
 import { SubjectManager } from '../core/SubjectManager';
 import { SceneManager } from '../core/SceneManager';
+import { ConfigManager } from '../core/ConfigManager';
 import { fileExists, readFile, ensureDir } from '../utils/fileSystem';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
@@ -44,7 +45,7 @@ export async function generateAllVideos(
     const videosToGenerate: Array<{ storyboard: Storyboard; exists: boolean }> = [];
     
     for (const sb of storyboards) {
-      const videoPath = path.join(workspaceRoot, 'assets', 'clips', `${sb.id}.mp4`);
+      const videoPath = path.join(workspaceRoot, 'video-clip', `${sb.id}.mp4`);
       const exists = await fileExists(videoPath);
       videosToGenerate.push({ storyboard: sb, exists });
     }
@@ -111,7 +112,8 @@ export async function generateAllVideos(
 
           try {
             const parser = new StoryboardParser();
-            await generateSingleVideo(sb, provider, subjectManager, sceneManager, parser);
+            const configManager = providerManager.getConfigManager();
+            await generateSingleVideo(sb, provider, configManager, subjectManager, sceneManager, parser);
             successCount++;
             
             // 统计图生视频数量（包括参考图和首帧图片）
@@ -163,11 +165,24 @@ export async function generateAllVideos(
 }
 
 /**
+ * 将分辨率从 P 格式转换为 width*height 格式（用于文生视频）
+ */
+function convertResolutionToSize(resolution: string): string {
+  const resolutionMap: Record<string, string> = {
+    '480P': '832*480',
+    '720P': '1280*720',
+    '1080P': '1920*1080'
+  };
+  return resolutionMap[resolution] || '832*480';
+}
+
+/**
  * 生成单个视频
  */
 async function generateSingleVideo(
   storyboard: Storyboard,
   provider: any,
+  configManager: ConfigManager,
   subjectManager?: SubjectManager,
   sceneManager?: SceneManager,
   parser?: StoryboardParser
@@ -185,44 +200,48 @@ async function generateSingleVideo(
   let imageSource: string | undefined;
 
   // 1. 优先使用参考图（用户提供的参考图，更可控）
-  if (storyboard.referenceImages && storyboard.referenceImages.length > 0) {
+  if (!imagePath && storyboard.referenceImages && storyboard.referenceImages.length > 0) {
     // 使用第一张参考图
-    imagePath = storyboard.referenceImages[0];
-    imageSource = '参考图';
+    let refImagePath = storyboard.referenceImages[0];
     
     // 如果是相对路径，转换为绝对路径
-    if (!path.isAbsolute(imagePath)) {
-      imagePath = path.join(workspaceRoot, imagePath);
+    if (!path.isAbsolute(refImagePath)) {
+      refImagePath = path.join(workspaceRoot, refImagePath);
     }
     
     // 检查文件是否存在
-    if (!(await fileExists(imagePath))) {
-      throw new Error(`参考图不存在: ${storyboard.referenceImages[0]}`);
+    if (await fileExists(refImagePath)) {
+      imagePath = refImagePath;
+      imageSource = '参考图';
+      const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
+      console.log(`[图生视频] ${storyboard.id}: 使用参考图 ${relativePath}`);
+    } else {
+      console.warn(`[图生视频] ${storyboard.id}: 参考图不存在，跳过: ${storyboard.referenceImages[0]}`);
     }
-    
-    const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
-    console.log(`[图生视频] ${storyboard.id}: 使用参考图 ${relativePath}`);
-  } 
-  // 2. 如果没有参考图，使用首帧图片（生成的首帧）
-  else if (storyboard.firstFrame) {
-    imagePath = storyboard.firstFrame;
-    imageSource = '首帧图片';
-    
-    // 如果是相对路径，转换为绝对路径
-    if (!path.isAbsolute(imagePath)) {
-      imagePath = path.join(workspaceRoot, imagePath);
-    }
-    
-    // 检查文件是否存在
-    if (!(await fileExists(imagePath))) {
-      throw new Error(`首帧图片不存在: ${storyboard.firstFrame}`);
-    }
-    
-    const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
-    console.log(`[图生视频] ${storyboard.id}: 使用首帧图片 ${relativePath}`);
   }
+  
+  // 2. 如果没有参考图或参考图不存在，尝试使用首帧图片（生成的首帧）
+  if (!imagePath && storyboard.firstFrame) {
+    let firstFramePath = storyboard.firstFrame;
+    
+    // 如果是相对路径，转换为绝对路径
+    if (!path.isAbsolute(firstFramePath)) {
+      firstFramePath = path.join(workspaceRoot, firstFramePath);
+    }
+    
+    // 检查文件是否存在
+    if (await fileExists(firstFramePath)) {
+      imagePath = firstFramePath;
+      imageSource = '首帧图片';
+      const relativePath = path.relative(workspaceRoot, imagePath).replace(/\\/g, '/');
+      console.log(`[图生视频] ${storyboard.id}: 使用首帧图片 ${relativePath}`);
+    } else {
+      console.warn(`[图生视频] ${storyboard.id}: 首帧图片不存在，跳过: ${storyboard.firstFrame}`);
+    }
+  }
+  
   // 3. 如果没有首帧，尝试使用主体和场景
-  else if (subjectManager && sceneManager && parser) {
+  if (!imagePath && subjectManager && sceneManager && parser) {
     const content = await readFile(storyboard.filePath);
     const subjects = parser.extractSubjects(content);
     const scenes = parser.extractScenes(content);
@@ -274,7 +293,7 @@ async function generateSingleVideo(
         const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
         
         // 下载临时图片
-        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         await provider.client.downloadResource(tempImageUrl, tempImagePath);
         
         imagePath = tempImagePath;
@@ -312,7 +331,7 @@ async function generateSingleVideo(
 3. 输出尺寸为 1280x720，适合视频生成`;
 
         const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
-        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         await provider.client.downloadResource(tempImageUrl, tempImagePath);
         
         imagePath = tempImagePath;
@@ -350,7 +369,7 @@ async function generateSingleVideo(
 3. 输出尺寸为 1280x720，适合视频生成`;
 
         const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
-        const tempImagePath = path.join(workspaceRoot, 'assets', 'temp', `${storyboard.id}-temp.png`);
+        const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         await provider.client.downloadResource(tempImageUrl, tempImagePath);
         
         imagePath = tempImagePath;
@@ -360,24 +379,49 @@ async function generateSingleVideo(
     }
   }
 
+  // 验证并获取时长（分镜时长只能是5秒或10秒）
+  let duration = storyboard.duration;
+  if (!duration) {
+    console.warn(`[警告] 分镜 ${storyboard.id} 未指定时长，使用默认值5秒`);
+    duration = 5; // 默认5秒
+  } else if (duration !== 5 && duration !== 10) {
+    console.warn(`[警告] 分镜 ${storyboard.id} 的时长 ${duration}秒 不符合规范（只能是5秒或10秒），使用默认值5秒`);
+    duration = 5; // 不符合规范时使用默认值
+  }
+
+  // 获取视频提示词（图生视频时使用）
+  // 优先级：videoPrompt > description
+  const videoPrompt = storyboard.videoPrompt || storyboard.description;
+  
+  if (!videoPrompt || videoPrompt.trim().length === 0) {
+    throw new Error(`分镜 ${storyboard.id} 缺少视频提示词，无法生成视频`);
+  }
+
+  // 从配置中获取分辨率
+  const resolution = configManager.getResolution();
+  
+  console.log(`[视频生成] ${storyboard.id}: 时长=${duration}秒, 方式=${imagePath ? (imageSource || '图生视频') : '文生视频'}, 分辨率=${resolution}`);
+  console.log(`[视频生成] ${storyboard.id}: 提示词=${videoPrompt.substring(0, 100)}...`);
+
   if (imagePath) {
-    // 图生视频
+    // 图生视频：使用配置的分辨率（480P、720P、1080P 格式）
     taskId = await provider.imageToVideo(
       imagePath,
-      storyboard.description,
+      videoPrompt,
       { 
-        duration: storyboard.duration,
-        resolution: '1080P'  // DashScope 图生视频用 1080P/720P 格式
+        duration: duration,
+        resolution: resolution  // DashScope 图生视频用 1080P/720P/480P 格式
       }
     );
   } else {
-    // 纯文生视频
+    // 纯文生视频：将 P 格式转换为 width*height 格式
+    const size = convertResolutionToSize(resolution);
     console.log(`[文生视频] ${storyboard.id}`);
     taskId = await provider.textToVideo(
-      storyboard.description,
+      videoPrompt,
       { 
-        duration: storyboard.duration,
-        resolution: '832*480'  // DashScope 文生视频用 width*height 格式
+        duration: duration,
+        resolution: size  // DashScope 文生视频用 width*height 格式
       }
     );
   }
@@ -390,7 +434,7 @@ async function generateSingleVideo(
     throw new Error('无法获取工作区路径');
   }
 
-  const savePath = path.join(workspaceRoot, 'assets', 'clips', `${storyboard.id}.mp4`);
+  const savePath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
   await provider.downloadResource(taskId, savePath);
 
   console.log(`✓ 视频生成完成: ${storyboard.id}`);
@@ -470,9 +514,9 @@ export async function generateSingleVideoFromClip(
     }
     
     // 确保临时目录存在
-    const tempDir = path.join(workspaceRoot, 'assets', 'temp');
+    const tempDir = path.join(workspaceRoot, '.temp');
     await ensureDir(tempDir);
-    const expectedClipPath = path.join(workspaceRoot, 'assets', 'clips', `${storyboard.id}.mp4`);
+    const expectedClipPath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
     const clipExists = await fileExists(expectedClipPath);
 
     // 如果视频已存在，提示用户这是重新生成
@@ -498,7 +542,8 @@ export async function generateSingleVideoFromClip(
         progress.report({ message: '正在生成...' });
         
         try {
-          await generateSingleVideo(storyboard, provider, subjectManager, sceneManager, parser);
+          const configManager = providerManager.getConfigManager();
+          await generateSingleVideo(storyboard, provider, configManager, subjectManager, sceneManager, parser);
           
           if (!token.isCancellationRequested) {
             const message = clipExists 

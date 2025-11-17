@@ -51,21 +51,23 @@ export class ConfigManager {
     const config = this.getConfig();
     
     const apiKey = config.get<string>('dashscope.apiKey', '');
+    const baseUrl = config.get<string>('dashscope.baseUrl', '');
 
     if (!apiKey) {
       return undefined;
     }
 
     return {
-      apiKey
+      apiKey,
+      baseUrl: baseUrl || undefined
     };
   }
 
   /**
-   * 获取视频分辨率
+   * 获取视频分辨率（返回 480P、720P、1080P 格式）
    */
   getResolution(): string {
-    return this.getConfig().get<string>('video.resolution', '1280x720');
+    return this.getConfig().get<string>('video.resolution', '720P');
   }
 
   /**

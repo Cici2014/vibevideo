@@ -53,11 +53,8 @@ export class ProjectInitializer {
       'scenes',                    // 场景目录
       'storyboards',
       'ref-img',                   // 参考图目录（用于生成首帧）
-      'assets',
-      'assets/clips',
-      'assets/audio',
-      'assets/references',
-      'assets/temp',               // 临时图片目录
+      'video-clip',                // 视频片段目录
+      '.temp',                     // 临时图片目录（隐藏目录）
       'first-frames',
       'output',
       '.vv-context'
@@ -98,7 +95,8 @@ export class ProjectInitializer {
     const gitignoreContent = `
 # Vibe Video
 .vv-secrets.json
-assets/clips/*.mp4
+.temp/
+video-clip/*.mp4
 first-frames/*.png
 output/*.mp4
 `;

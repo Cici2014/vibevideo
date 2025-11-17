@@ -86,5 +86,7 @@ export interface ProviderConfig {
  */
 export interface TongyiConfig {
   apiKey: string;
+  /** 自定义 API 基础 URL（用于本地部署模型），例如：http://localhost:8000/v1/services/aigc */
+  baseUrl?: string;
 }
 

@@ -27,10 +27,35 @@ interface APIResponse {
  */
 export class BailianAPIClient {
   private apiKey: string;
-  private baseUrl = 'https://dashscope.aliyuncs.com/api/v1/services/aigc';
+  private baseUrl: string;
+  private taskBaseUrl: string;
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, baseUrl?: string) {
     this.apiKey = apiKey;
+    
+    // 如果提供了自定义 baseUrl，使用它；否则使用默认的阿里云地址
+    if (baseUrl) {
+      this.baseUrl = baseUrl;
+      // 从 baseUrl 中提取基础部分，用于任务查询
+      // 例如：http://localhost:8000/v1/services/aigc -> http://localhost:8000/v1
+      // 或者：http://localhost:8000/v1 -> http://localhost:8000/v1
+      try {
+        const urlObj = new URL(baseUrl);
+        // 移除路径中的 /services/aigc 部分（如果存在）
+        let pathname = urlObj.pathname.replace(/\/services\/aigc.*$/, '');
+        // 如果路径为空，使用 /v1 作为默认路径
+        if (!pathname || pathname === '/') {
+          pathname = '/v1';
+        }
+        this.taskBaseUrl = `${urlObj.protocol}//${urlObj.host}${pathname}`;
+      } catch (error) {
+        // 如果 URL 格式不正确，抛出错误
+        throw new Error(`无效的 baseUrl 格式: ${baseUrl}。请提供完整的 URL，例如：http://localhost:8000/v1/services/aigc`);
+      }
+    } else {
+      this.baseUrl = 'https://dashscope.aliyuncs.com/api/v1/services/aigc';
+      this.taskBaseUrl = 'https://dashscope.aliyuncs.com/api/v1';
+    }
   }
 
   /**
@@ -199,7 +224,7 @@ export class BailianAPIClient {
     error?: string;
   }> {
     // DashScope 异步任务查询端点
-    const url = `https://dashscope.aliyuncs.com/api/v1/tasks/${taskId}`;
+    const url = `${this.taskBaseUrl}/tasks/${taskId}`;
 
     console.log('[API] 查询任务状态:', { taskId, url });
 
@@ -287,7 +312,7 @@ export class BailianAPIClient {
     imageBase64Array: string[],  // Base64 编码的图片数组
     prompt: string                // 合成描述
   ): Promise<string> {
-    const url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
+    const url = `${this.baseUrl}/multimodal-generation/generation`;
 
     // 构建 content（多图 + 文本）
     const content = [

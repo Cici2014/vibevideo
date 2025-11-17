@@ -14,7 +14,7 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
   private client: BailianAPIClient;
 
   constructor(config: TongyiConfig) {
-    this.client = new BailianAPIClient(config.apiKey);
+    this.client = new BailianAPIClient(config.apiKey, config.baseUrl);
   }
 
   /**

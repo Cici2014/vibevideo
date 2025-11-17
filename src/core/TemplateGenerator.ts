@@ -29,38 +29,46 @@ function getTemplatePath(templateName: string): string | undefined {
     return path.join(extension.extensionPath, 'templates', templateName);
   }
   
-  // 开发环境：从编译后的 dist/core 或 src/core 目录向上找到项目根目录
-  // __dirname 在编译后会是 dist/core，在开发时可能是 src/core
+  // 开发环境：从当前文件位置向上查找包含 templates 目录的位置
+  // 这是最可靠的方法，直接查找 templates 目录
   try {
-    const currentDir = __dirname;
-    // 尝试从 dist/core 或 src/core 向上找到项目根目录
-    let projectRoot = currentDir;
+    const fs = require('fs');
+    let currentDir = __dirname;
     
-    // 如果当前在 dist/core 或 src/core，向上两级到项目根
-    if (currentDir.includes('dist') || currentDir.includes('src')) {
-      projectRoot = path.resolve(currentDir, '../../');
-    } else {
-      // 否则尝试从当前目录向上查找包含 templates 目录的位置
-      let current = currentDir;
-      for (let i = 0; i < 5; i++) {
-        const testPath = path.join(current, 'templates', templateName);
-        try {
-          const fs = require('fs');
-          if (fs.existsSync(testPath)) {
-            return testPath;
-          }
-        } catch {
-          // 忽略错误
-        }
-        current = path.resolve(current, '..');
-        if (current === path.resolve(current, '..')) {
-          break; // 到达根目录
-        }
+    // 向上查找最多 5 层，直到找到包含 templates 目录的位置
+    for (let i = 0; i < 5; i++) {
+      const templatesDir = path.join(currentDir, 'templates');
+      const templatePath = path.join(templatesDir, templateName);
+      
+      // 检查模板文件是否存在
+      if (fs.existsSync(templatePath)) {
+        return templatePath;
       }
+      
+      // 检查 templates 目录是否存在（即使文件不存在）
+      if (fs.existsSync(templatesDir) && fs.statSync(templatesDir).isDirectory()) {
+        // 找到了 templates 目录，返回模板文件路径（即使文件可能不存在）
+        return templatePath;
+      }
+      
+      // 向上移动一层
+      const parentDir = path.resolve(currentDir, '..');
+      if (parentDir === currentDir) {
+        // 已经到达根目录，停止查找
+        break;
+      }
+      currentDir = parentDir;
     }
     
-    const templatePath = path.join(projectRoot, 'templates', templateName);
-    return templatePath;
+    // 如果没找到，尝试从 dist/core 或 src/core 向上两级
+    const currentDir2 = __dirname;
+    if (currentDir2.includes('dist') || currentDir2.includes('src')) {
+      const projectRoot = path.resolve(currentDir2, '../../');
+      const templatePath = path.join(projectRoot, 'templates', templateName);
+      return templatePath;
+    }
+    
+    return undefined;
   } catch (error) {
     console.warn('无法确定模板路径:', error);
     return undefined;
@@ -105,283 +113,119 @@ function loadTemplateSync(templateName: string, defaultContent: string): string 
 }
 
 /**
+ * 从文件读取必需的模板，如果文件不存在则抛出错误
+ */
+async function loadRequiredTemplate(templateName: string): Promise<string> {
+  const templatePath = getTemplatePath(templateName);
+  if (!templatePath) {
+    // 尝试手动查找模板文件以提供更好的错误信息
+    const fs = require('fs');
+    const currentDir = __dirname;
+    const possiblePaths: string[] = [];
+    
+    // 收集可能的路径用于错误信息
+    let current = currentDir;
+    for (let i = 0; i < 5; i++) {
+      const testPath = path.join(current, 'templates', templateName);
+      possiblePaths.push(testPath);
+      current = path.resolve(current, '..');
+      if (current === path.resolve(current, '..')) {
+        break;
+      }
+    }
+    
+    throw new Error(
+      `无法找到模板文件 ${templateName} 的路径。\n` +
+      `当前目录: ${currentDir}\n` +
+      `尝试过的路径:\n${possiblePaths.map(p => `  - ${p}`).join('\n')}`
+    );
+  }
+  
+  if (!(await fileExists(templatePath))) {
+    const fs = require('fs');
+    const templatesDir = path.dirname(templatePath);
+    const dirExists = await fileExists(templatesDir);
+    
+    throw new Error(
+      `模板文件 ${templateName} 不存在。\n` +
+      `期望路径: ${templatePath}\n` +
+      `templates 目录${dirExists ? '存在' : '不存在'}: ${templatesDir}\n` +
+      `当前工作目录: ${process.cwd()}`
+    );
+  }
+  
+  try {
+    return await readFile(templatePath);
+  } catch (error) {
+    throw new Error(`无法读取模板文件 ${templateName} (${templatePath}): ${error}`);
+  }
+}
+
+/**
+ * 同步版本：从文件读取必需的模板，如果文件不存在则抛出错误
+ */
+function loadRequiredTemplateSync(templateName: string): string {
+  const templatePath = getTemplatePath(templateName);
+  if (!templatePath) {
+    // 尝试手动查找模板文件以提供更好的错误信息
+    const fs = require('fs');
+    const currentDir = __dirname;
+    const possiblePaths: string[] = [];
+    
+    // 收集可能的路径用于错误信息
+    let current = currentDir;
+    for (let i = 0; i < 5; i++) {
+      const testPath = path.join(current, 'templates', templateName);
+      possiblePaths.push(testPath);
+      current = path.resolve(current, '..');
+      if (current === path.resolve(current, '..')) {
+        break;
+      }
+    }
+    
+    throw new Error(
+      `无法找到模板文件 ${templateName} 的路径。\n` +
+      `当前目录: ${currentDir}\n` +
+      `尝试过的路径:\n${possiblePaths.map(p => `  - ${p}`).join('\n')}`
+    );
+  }
+  
+  try {
+    const fs = require('fs');
+    if (!fs.existsSync(templatePath)) {
+      const templatesDir = path.dirname(templatePath);
+      const dirExists = fs.existsSync(templatesDir);
+      
+      throw new Error(
+        `模板文件 ${templateName} 不存在。\n` +
+        `期望路径: ${templatePath}\n` +
+        `templates 目录${dirExists ? '存在' : '不存在'}: ${templatesDir}\n` +
+        `当前工作目录: ${process.cwd()}`
+      );
+    }
+    return fs.readFileSync(templatePath, 'utf-8');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('不存在')) {
+      throw error;
+    }
+    throw new Error(`无法读取模板文件 ${templateName} (${templatePath}): ${error}`);
+  }
+}
+
+/**
  * 生成 .cursorrules 内容
+ * 直接使用模板文件 templates/cursorrules.md，如果文件不存在则抛出错误
  */
 export async function generateCursorRules(): Promise<string> {
-  const defaultContent = `# Vibe Video 项目 - AI 助手指南
-
-## 核心任务
-当用户要求"生成分镜"时，执行以下步骤：
-1. 阅读 \`剧本.md\`
-2. 将剧本拆分为 5-10 秒的场景
-3. 为每个场景生成分镜 Markdown，保存到 \`storyboards/\`
-4. 同步生成首帧描述 Markdown，保存到 \`first-frames/\`
-
----
-
-## 分镜脚本格式
-
-### 必需内容
-每个分镜描述必须包含：
-- **场景/环境**：位置、背景
-- **主体**：主要对象
-- **光线**：光源方向、色调
-- **运镜**：镜头运动方式（推/拉/摇/移/固定）
-- **动作**：画面中的动态元素
-- **氛围**：情绪和感觉（可选）
-
-### 文件格式
-\`\`\`markdown
-# 场景标题
-
-- **时长**: 5秒（可选）
-- **主体**: 角色1, 角色2（如使用主体功能）
-- **参考图**: ref-img/xxx.jpg（如使用参考图）
-
-详细的视觉描述...
-\`\`\`
-
-### 示例
-\`\`\`markdown
-# 开场镜头
-
-城市清晨的天际线，玻璃幕墙的高楼反射金色阳光。
-无人机视角从低空缓慢上升，展现整个城市轮廓。
-街道上车流如织，人们开始一天的忙碌。
-光线温暖明亮，画面充满希望和活力的感觉。
-\`\`\`
-
----
-
-## 首帧描述格式
-
-### 文件位置
-- 目录：\`first-frames/\`（不存在则创建）
-- 命名：\`01-opening-first-frame.md\` 或 \`scene3-first-frame.md\`
-
-### 必需字段
-\`\`\`markdown
-# 场景标题
-- **首帧提示**: 静态画面描述（避免视频化表述）
-- **参考图片**: 路径1, 路径2（可选，支持多张，逗号分隔）
-- **主体**: 主体外观（含表情/姿态）
-- **场景**: 环境描述
-- **光线**: 光线色调
-- **构图**: 视角和构图
-- **氛围**: 情绪氛围
-\`\`\`
-
-### 重要约束
-- ✅ 只描述单帧静态画面
-- ❌ 禁止"镜头移动""动作连贯"等视频化表述
-- ✅ 参考图片路径：相对路径或绝对路径，支持多张（逗号/空格分隔）
-
----
-
-## 主体功能（可选）
-
-### 使用场景
-视频中有固定角色时使用，确保角色外观一致。
-
-### 定义主体
-在 \`subjects/\` 目录创建 \`角色名.md\`：
-\`\`\`markdown
-# 角色名
-
-角色外观描述...
-3D卡通风格，圆润体型，大眼睛...
-
-**约束**：只生成主体本身，背景纯白色（#FFFFFF），无其他物品。
-\`\`\`
-
-### 引用主体
-在分镜中使用：
-\`\`\`markdown
-- **主体**: 角色1, 角色2
-- **场景**: 场景描述
-- **构图**: 构图说明
-\`\`\`
-
----
-
-## 参考图功能（可选）
-
-### 使用场景
-用户提供参考图片（产品图、场景照片、风格参考等）时使用。
-
-### 放置位置
-将图片（.png, .jpg, .jpeg）放入 \`ref-img/\` 目录。
-
-### 引用方式
-\`\`\`markdown
-- **参考图**: ref-img/product.jpg
-- **参考图**: ref-img/img1.jpg, ref-img/img2.jpg（多张）
-\`\`\`
-
-### 生成视频时的优先级
-生成视频时，图片使用优先级为：
-1. **参考图**（\`ref-img/xxx.jpg\`）- 优先使用，用户可控
-2. **首帧图片**（\`first-frames/xxx.png\`）- 如果未指定参考图，使用生成的首帧
-3. **文生视频** - 如果都没有，使用纯文本生成
-
-**重要**：如果分镜脚本中指定了参考图，生成视频时将直接使用参考图，而不是生成的首帧图片。这样可以确保用户对参考图的使用更加可控。
-
----
-
-## 优先级
-
-1. **描述质量** > 格式规范
-2. **内容完整** > 格式完美
-3. **视觉清晰** > 技术细节
-
----
-
-## 文件命名
-- 支持任意命名：\`01-opening.md\`、\`scene1.md\`、\`开场.md\`
-- 建议使用有意义的名称
-`;
-  
-  return await loadTemplate('cursorrules.md', defaultContent);
+  return await loadRequiredTemplate('cursorrules.md');
 }
 
 /**
  * 同步版本：生成 .cursorrules 内容
+ * 直接使用模板文件 templates/cursorrules.md，如果文件不存在则抛出错误
  */
 export function generateCursorRulesSync(): string {
-  const defaultContent = `# Vibe Video 项目 - AI 助手指南
-
-## 核心任务
-当用户要求"生成分镜"时，执行以下步骤：
-1. 阅读 \`剧本.md\`
-2. 将剧本拆分为 5-10 秒的场景
-3. 为每个场景生成分镜 Markdown，保存到 \`storyboards/\`
-4. 同步生成首帧描述 Markdown，保存到 \`first-frames/\`
-
----
-
-## 分镜脚本格式
-
-### 必需内容
-每个分镜描述必须包含：
-- **场景/环境**：位置、背景
-- **主体**：主要对象
-- **光线**：光源方向、色调
-- **运镜**：镜头运动方式（推/拉/摇/移/固定）
-- **动作**：画面中的动态元素
-- **氛围**：情绪和感觉（可选）
-
-### 文件格式
-\`\`\`markdown
-# 场景标题
-
-- **时长**: 5秒（可选）
-- **主体**: 角色1, 角色2（如使用主体功能）
-- **参考图**: ref-img/xxx.jpg（如使用参考图）
-
-详细的视觉描述...
-\`\`\`
-
-### 示例
-\`\`\`markdown
-# 开场镜头
-
-城市清晨的天际线，玻璃幕墙的高楼反射金色阳光。
-无人机视角从低空缓慢上升，展现整个城市轮廓。
-街道上车流如织，人们开始一天的忙碌。
-光线温暖明亮，画面充满希望和活力的感觉。
-\`\`\`
-
----
-
-## 首帧描述格式
-
-### 文件位置
-- 目录：\`first-frames/\`（不存在则创建）
-- 命名：\`01-opening-first-frame.md\` 或 \`scene3-first-frame.md\`
-
-### 必需字段
-\`\`\`markdown
-# 场景标题
-- **首帧提示**: 静态画面描述（避免视频化表述）
-- **参考图片**: 路径1, 路径2（可选，支持多张，逗号分隔）
-- **主体**: 主体外观（含表情/姿态）
-- **场景**: 环境描述
-- **光线**: 光线色调
-- **构图**: 视角和构图
-- **氛围**: 情绪氛围
-\`\`\`
-
-### 重要约束
-- ✅ 只描述单帧静态画面
-- ❌ 禁止"镜头移动""动作连贯"等视频化表述
-- ✅ 参考图片路径：相对路径或绝对路径，支持多张（逗号/空格分隔）
-
----
-
-## 主体功能（可选）
-
-### 使用场景
-视频中有固定角色时使用，确保角色外观一致。
-
-### 定义主体
-在 \`subjects/\` 目录创建 \`角色名.md\`：
-\`\`\`markdown
-# 角色名
-
-角色外观描述...
-3D卡通风格，圆润体型，大眼睛...
-
-**约束**：只生成主体本身，背景纯白色（#FFFFFF），无其他物品。
-\`\`\`
-
-### 引用主体
-在分镜中使用：
-\`\`\`markdown
-- **主体**: 角色1, 角色2
-- **场景**: 场景描述
-- **构图**: 构图说明
-\`\`\`
-
----
-
-## 参考图功能（可选）
-
-### 使用场景
-用户提供参考图片（产品图、场景照片、风格参考等）时使用。
-
-### 放置位置
-将图片（.png, .jpg, .jpeg）放入 \`ref-img/\` 目录。
-
-### 引用方式
-\`\`\`markdown
-- **参考图**: ref-img/product.jpg
-- **参考图**: ref-img/img1.jpg, ref-img/img2.jpg（多张）
-\`\`\`
-
-### 生成视频时的优先级
-生成视频时，图片使用优先级为：
-1. **参考图**（\`ref-img/xxx.jpg\`）- 优先使用，用户可控
-2. **首帧图片**（\`first-frames/xxx.png\`）- 如果未指定参考图，使用生成的首帧
-3. **文生视频** - 如果都没有，使用纯文本生成
-
-**重要**：如果分镜脚本中指定了参考图，生成视频时将直接使用参考图，而不是生成的首帧图片。这样可以确保用户对参考图的使用更加可控。
-
----
-
-## 优先级
-
-1. **描述质量** > 格式规范
-2. **内容完整** > 格式完美
-3. **视觉清晰** > 技术细节
-
----
-
-## 文件命名
-- 支持任意命名：\`01-opening.md\`、\`scene1.md\`、\`开场.md\`
-- 建议使用有意义的名称
-`;
-  
-  return loadTemplateSync('cursorrules.md', defaultContent);
+  return loadRequiredTemplateSync('cursorrules.md');
 }
 
 /**

@@ -49,6 +49,7 @@ export async function generateAllFirstFrames(
     }
 
     // 找出可以生成首帧的分镜并确定策略
+    // 策略选择逻辑：只使用首帧描述中明确指定的参考图和主体，不自动匹配
     const canGenerateFirstFrame: Array<{ 
       storyboard: Storyboard; 
       exists: boolean;
@@ -58,109 +59,101 @@ export async function generateAllFirstFrames(
     }> = [];
     
     for (const sb of storyboards) {
-      // 读取分镜内容以提取主体和场景
-      const content = await readFile(sb.filePath);
-      const subjects = parser.extractSubjects(content);
-      const scenes = parser.extractScenes(content);
+      // 加载首帧描述Markdown
+      const firstFrameMarkdown = await loadFirstFrameMarkdown(sb.id, workspaceRoot);
       
-      // 确定生成策略（优先级：主体+场景 > 主体 > 场景 > 参考图 > 提示词）
+      // 确定生成策略（优先级：首帧描述中的参考图 > 首帧描述中的主体 > 提示词）
       let strategy: FirstFrameStrategy | undefined;
       let effectiveSubjects: string[] | undefined;
       let effectiveScenes: string[] | undefined;
       
-      // 检查是否有主体和场景
-      if (subjects.length > 0 && scenes.length > 0 && sceneManager) {
+      // 1. 优先检查首帧描述中明确指定的参考图
+      const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
+        firstFrameMarkdown?.content,
+        workspaceRoot
+      );
+      
+      if (referenceImages && referenceImages.length > 0) {
+        // 检查参考图文件是否存在
+        let allRefImagesExist = true;
+        for (const refImage of referenceImages) {
+          if (!(await fileExists(refImage))) {
+            allRefImagesExist = false;
+            break;
+          }
+        }
+        
+        if (allRefImagesExist) {
+          strategy = FirstFrameStrategy.REFERENCE_IMAGES;
+        }
+      }
+      
+      // 2. 如果没有参考图，检查首帧描述中明确指定的主体和场景
+      if (!strategy && firstFrameMarkdown?.content) {
+        const { subjects: firstFrameSubjects, scenes: firstFrameScenes } = 
+          extractSubjectsAndScenesFromFirstFrameMarkdown(firstFrameMarkdown.content, workspaceRoot);
+        
         // 检查主体和场景图片是否存在
-        let allSubjectsExist = true;
-        let allScenesExist = true;
-        const subjectIds = subjects.slice(0, 3); // 最多3个主体
-        const sceneIds = scenes.slice(0, 2); // 最多2个场景
-        
-        for (const subjectId of subjectIds) {
-          if (!(await subjectManager.subjectExists(subjectId))) {
-            allSubjectsExist = false;
-            break;
-          }
-        }
-        
-        for (const sceneId of sceneIds) {
-          if (!(await sceneManager.sceneExists(sceneId))) {
-            allScenesExist = false;
-            break;
-          }
-        }
-        
-        if (allSubjectsExist && allScenesExist) {
-          strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
-          effectiveSubjects = subjectIds;
-          effectiveScenes = sceneIds;
-        }
-      }
-      
-      // 如果主体+场景不可用，检查是否有主体
-      if (!strategy && subjects.length > 0) {
-        // 检查主体图片是否存在
-        let allSubjectsExist = true;
-        for (const subjectId of subjects.slice(0, 3)) { // 最多检查前3个
-          if (!(await subjectManager.subjectExists(subjectId))) {
-            allSubjectsExist = false;
-            break;
-          }
-        }
-        
-        if (allSubjectsExist) {
-          strategy = FirstFrameStrategy.SUBJECTS;
-          effectiveSubjects = subjects.slice(0, 3);
-        }
-      }
-      
-      // 如果主体不可用，检查是否有场景
-      if (!strategy && scenes.length > 0 && sceneManager) {
-        // 检查场景图片是否存在
-        let allScenesExist = true;
-        for (const sceneId of scenes.slice(0, 2)) { // 最多检查前2个
-          if (!(await sceneManager.sceneExists(sceneId))) {
-            allScenesExist = false;
-            break;
-          }
-        }
-        
-        if (allScenesExist) {
-          strategy = FirstFrameStrategy.SCENES;
-          effectiveScenes = scenes.slice(0, 2);
-        }
-      }
-      
-      // 如果没有主体或主体不存在，检查参考图
-      if (!strategy) {
-        const firstFrameMarkdown = await loadFirstFrameMarkdown(sb.id, workspaceRoot);
-        const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
-          firstFrameMarkdown?.content,
-          workspaceRoot
-        ) || (sb.referenceImages && sb.referenceImages.length > 0 ? sb.referenceImages.map(ref => {
-          if (path.isAbsolute(ref)) return ref;
-          return path.join(workspaceRoot, ref);
-        }) : []);
-        
-        if (referenceImages.length > 0) {
-          // 检查参考图文件是否存在
-          let allRefImagesExist = true;
-          for (const refImage of referenceImages) {
-            if (!(await fileExists(refImage))) {
-              allRefImagesExist = false;
+        if (firstFrameSubjects.length > 0 && firstFrameScenes.length > 0 && sceneManager) {
+          let allSubjectsExist = true;
+          let allScenesExist = true;
+          
+          for (const subjectId of firstFrameSubjects) {
+            if (!(await subjectManager.subjectExists(subjectId))) {
+              allSubjectsExist = false;
               break;
             }
           }
           
-          if (allRefImagesExist) {
-            strategy = FirstFrameStrategy.REFERENCE_IMAGES;
+          for (const sceneId of firstFrameScenes) {
+            if (!(await sceneManager.sceneExists(sceneId))) {
+              allScenesExist = false;
+              break;
+            }
+          }
+          
+          if (allSubjectsExist && allScenesExist) {
+            strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
+            effectiveSubjects = firstFrameSubjects;
+            effectiveScenes = firstFrameScenes;
+          }
+        }
+        
+        // 如果主体+场景不可用，检查是否有主体
+        if (!strategy && firstFrameSubjects.length > 0) {
+          let allSubjectsExist = true;
+          for (const subjectId of firstFrameSubjects) {
+            if (!(await subjectManager.subjectExists(subjectId))) {
+              allSubjectsExist = false;
+              break;
+            }
+          }
+          
+          if (allSubjectsExist) {
+            strategy = FirstFrameStrategy.SUBJECTS;
+            effectiveSubjects = firstFrameSubjects;
+          }
+        }
+        
+        // 如果主体不可用，检查是否有场景
+        if (!strategy && firstFrameScenes.length > 0 && sceneManager) {
+          let allScenesExist = true;
+          for (const sceneId of firstFrameScenes) {
+            if (!(await sceneManager.sceneExists(sceneId))) {
+              allScenesExist = false;
+              break;
+            }
+          }
+          
+          if (allScenesExist) {
+            strategy = FirstFrameStrategy.SCENES;
+            effectiveScenes = firstFrameScenes;
           }
         }
       }
       
-      // 如果前两者都没有，检查提示词
+      // 3. 如果都没有明确指定，使用文生图
       if (!strategy) {
-        const firstFrameMarkdown = await loadFirstFrameMarkdown(sb.id, workspaceRoot);
         const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
           || sb.firstFramePrompt 
           || sb.description;
@@ -172,7 +165,8 @@ export async function generateAllFirstFrames(
       
       // 如果找到了策略，添加到列表
       if (strategy) {
-        const firstFramePath = path.join(workspaceRoot, 'first-frames', `${sb.id}.png`);
+        // 使用与首帧描述文件相同的命名规则：${storyboardId}-first-frame.png
+        const firstFramePath = path.join(workspaceRoot, 'first-frames', `${sb.id}-first-frame.png`);
         const exists = await fileExists(firstFramePath);
         canGenerateFirstFrame.push({ 
           storyboard: sb, 
@@ -187,9 +181,9 @@ export async function generateAllFirstFrames(
     if (canGenerateFirstFrame.length === 0) {
       vscode.window.showInformationMessage(
         '没有可生成首帧的分镜！\n\n提示：\n' +
-        '1. 在分镜中添加主体（"- **主体**: 主体名称"）并生成主体图片\n' +
-        '2. 在分镜中添加参考图（"- **参考图**: ref-img/xxx.jpg"）\n' +
-        '3. 在分镜中添加提示词（"- **生成首帧**: 描述"）'
+        '1. 在首帧描述中添加参考图（"- **参考图片**: 路径"）\n' +
+        '2. 在首帧描述的参考图片中指定主体和场景（如：subjects/角色名.png, scenes/场景名.png）\n' +
+        '3. 在首帧描述中添加提示词（"- **首帧提示**: 描述"）'
       );
       return;
     }
@@ -344,9 +338,6 @@ export async function generateFirstFrameForStoryboard(
     const provider = await providerManager.getProvider();
     const parser = new StoryboardParser();
     const storyboard = await parser.parseMarkdown(storyboardPath);
-    const content = await readFile(storyboard.filePath);
-    const subjects = parser.extractSubjects(content);
-    const scenes = parser.extractScenes(content);
 
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
@@ -354,102 +345,101 @@ export async function generateFirstFrameForStoryboard(
       return;
     }
 
-    // 确定生成策略
+    // 加载首帧描述Markdown
+    const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
+
+    // 确定生成策略（只使用首帧描述中明确指定的参考图和主体）
     let strategy: FirstFrameStrategy | undefined;
     let effectiveSubjects: string[] | undefined;
     let effectiveScenes: string[] | undefined;
 
-    // 检查主体和场景
-    if (subjects.length > 0 && scenes.length > 0 && sceneManager) {
-      let allSubjectsExist = true;
-      let allScenesExist = true;
-      const subjectIds = subjects.slice(0, 3);
-      const sceneIds = scenes.slice(0, 2);
-      
-      for (const subjectId of subjectIds) {
-        if (!(await subjectManager.subjectExists(subjectId))) {
-          allSubjectsExist = false;
+    // 1. 优先检查首帧描述中明确指定的参考图
+    const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
+      firstFrameMarkdown?.content,
+      workspaceRoot
+    );
+    
+    if (referenceImages && referenceImages.length > 0) {
+      // 检查参考图文件是否存在
+      let allRefImagesExist = true;
+      for (const refImage of referenceImages) {
+        if (!(await fileExists(refImage))) {
+          allRefImagesExist = false;
           break;
         }
       }
       
-      for (const sceneId of sceneIds) {
-        if (!(await sceneManager.sceneExists(sceneId))) {
-          allScenesExist = false;
-          break;
-        }
-      }
-      
-      if (allSubjectsExist && allScenesExist) {
-        strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
-        effectiveSubjects = subjectIds;
-        effectiveScenes = sceneIds;
-      }
-    }
-
-    // 检查主体
-    if (!strategy && subjects.length > 0) {
-      let allSubjectsExist = true;
-      const effectiveSubjectIds = subjects.slice(0, 3);
-      for (const subjectId of effectiveSubjectIds) {
-        if (!(await subjectManager.subjectExists(subjectId))) {
-          allSubjectsExist = false;
-          break;
-        }
-      }
-      
-      if (allSubjectsExist) {
-        strategy = FirstFrameStrategy.SUBJECTS;
-        effectiveSubjects = effectiveSubjectIds;
+      if (allRefImagesExist) {
+        strategy = FirstFrameStrategy.REFERENCE_IMAGES;
       }
     }
     
-    // 检查场景
-    if (!strategy && scenes.length > 0 && sceneManager) {
-      let allScenesExist = true;
-      const sceneIds = scenes.slice(0, 2);
-      for (const sceneId of sceneIds) {
-        if (!(await sceneManager.sceneExists(sceneId))) {
-          allScenesExist = false;
-          break;
-        }
-      }
+    // 2. 如果没有参考图，检查首帧描述中明确指定的主体和场景
+    if (!strategy && firstFrameMarkdown?.content) {
+      const { subjects: firstFrameSubjects, scenes: firstFrameScenes } = 
+        extractSubjectsAndScenesFromFirstFrameMarkdown(firstFrameMarkdown.content, workspaceRoot);
       
-      if (allScenesExist) {
-        strategy = FirstFrameStrategy.SCENES;
-        effectiveScenes = sceneIds;
-      }
-    }
-
-    // 检查参考图
-    if (!strategy) {
-      const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
-      const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(
-        firstFrameMarkdown?.content,
-        workspaceRoot
-      ) || (storyboard.referenceImages && storyboard.referenceImages.length > 0 ? storyboard.referenceImages.map(ref => {
-        if (path.isAbsolute(ref)) return ref;
-        return path.join(workspaceRoot, ref);
-      }) : []);
-      
-      if (referenceImages.length > 0) {
-        let allRefImagesExist = true;
-        for (const refImage of referenceImages) {
-          if (!(await fileExists(refImage))) {
-            allRefImagesExist = false;
+      // 检查主体和场景图片是否存在
+      if (firstFrameSubjects.length > 0 && firstFrameScenes.length > 0 && sceneManager) {
+        let allSubjectsExist = true;
+        let allScenesExist = true;
+        
+        for (const subjectId of firstFrameSubjects) {
+          if (!(await subjectManager.subjectExists(subjectId))) {
+            allSubjectsExist = false;
             break;
           }
         }
         
-        if (allRefImagesExist) {
-          strategy = FirstFrameStrategy.REFERENCE_IMAGES;
+        for (const sceneId of firstFrameScenes) {
+          if (!(await sceneManager.sceneExists(sceneId))) {
+            allScenesExist = false;
+            break;
+          }
+        }
+        
+        if (allSubjectsExist && allScenesExist) {
+          strategy = FirstFrameStrategy.SUBJECTS_AND_SCENES;
+          effectiveSubjects = firstFrameSubjects;
+          effectiveScenes = firstFrameScenes;
+        }
+      }
+      
+      // 如果主体+场景不可用，检查是否有主体
+      if (!strategy && firstFrameSubjects.length > 0) {
+        let allSubjectsExist = true;
+        for (const subjectId of firstFrameSubjects) {
+          if (!(await subjectManager.subjectExists(subjectId))) {
+            allSubjectsExist = false;
+            break;
+          }
+        }
+        
+        if (allSubjectsExist) {
+          strategy = FirstFrameStrategy.SUBJECTS;
+          effectiveSubjects = firstFrameSubjects;
+        }
+      }
+      
+      // 如果主体不可用，检查是否有场景
+      if (!strategy && firstFrameScenes.length > 0 && sceneManager) {
+        let allScenesExist = true;
+        for (const sceneId of firstFrameScenes) {
+          if (!(await sceneManager.sceneExists(sceneId))) {
+            allScenesExist = false;
+            break;
+          }
+        }
+        
+        if (allScenesExist) {
+          strategy = FirstFrameStrategy.SCENES;
+          effectiveScenes = firstFrameScenes;
         }
       }
     }
 
-    // 检查提示词
+    // 3. 如果都没有明确指定，使用文生图
     if (!strategy) {
-      const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
       const prompt = extractPromptFromFirstFrameMarkdown(firstFrameMarkdown?.content) 
         || storyboard.firstFramePrompt 
         || storyboard.description;
@@ -462,15 +452,16 @@ export async function generateFirstFrameForStoryboard(
     if (!strategy) {
       vscode.window.showWarningMessage(
         `分镜「${storyboard.title}」无法生成首帧。\n\n提示：\n` +
-        '1. 添加主体（"- **主体**: 主体名称"）并生成主体图片\n' +
-        '2. 添加参考图（"- **参考图**: ref-img/xxx.jpg"）\n' +
-        '3. 添加提示词（"- **生成首帧**: 描述"）'
+        '1. 在首帧描述中添加参考图（"- **参考图片**: 路径"）\n' +
+        '2. 在首帧描述的参考图片中指定主体和场景（如：subjects/角色名.png, scenes/场景名.png）\n' +
+        '3. 在首帧描述中添加提示词（"- **首帧提示**: 描述"）'
       );
       return;
     }
 
     // 检查首帧是否已存在
-    const firstFramePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
+    // 使用与首帧描述文件相同的命名规则：${storyboardId}-first-frame.png
+    const firstFramePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}-first-frame.png`);
     const exists = await fileExists(firstFramePath);
 
     if (exists) {
@@ -771,7 +762,8 @@ async function generateSingleFirstFrame(
   }
 
   // 处理结果并保存
-  const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}.png`);
+  // 使用与首帧描述文件相同的命名规则：${storyboardId}-first-frame.png
+  const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}-first-frame.png`);
   
   if (result.startsWith('http')) {
     // 同步模式：直接返回图片 URL
@@ -1108,11 +1100,14 @@ function extractReferenceImagesFromFirstFrameMarkdown(
   for (const pattern of patterns) {
     const match = content.match(pattern);
     if (match) {
-      // 分割多个路径（支持逗号、中文逗号、空格分隔）
-      const imagePaths = match[1]
-        .split(/[,，\s]+/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0)
+      // 分割多个路径（只使用逗号、中文逗号分隔，不使用空格，因为路径中可能包含空格）
+      const rawValue = match[1].trim();
+      // 如果包含逗号或中文逗号，才进行分割；否则作为单个路径处理
+      const imagePaths = rawValue.includes(',') || rawValue.includes('，')
+        ? rawValue.split(/[,，]+/).map(s => s.trim()).filter(s => s.length > 0)
+        : [rawValue];
+      
+      const resolvedPaths = imagePaths
         .map(imagePath => {
           // 如果是绝对路径，直接返回
           if (path.isAbsolute(imagePath)) {
@@ -1122,11 +1117,51 @@ function extractReferenceImagesFromFirstFrameMarkdown(
           return path.join(workspaceRoot, imagePath);
         });
       
-      return imagePaths.length > 0 ? imagePaths : undefined;
+      return resolvedPaths.length > 0 ? resolvedPaths : undefined;
     }
   }
 
   return undefined;
+}
+
+/**
+ * 从首帧描述Markdown中提取主体和场景
+ * 从参考图片字段中解析 subjects/xxx.png 和 scenes/xxx.png 格式的路径
+ */
+function extractSubjectsAndScenesFromFirstFrameMarkdown(
+  content: string,
+  workspaceRoot: string
+): { subjects: string[]; scenes: string[] } {
+  const subjects: string[] = [];
+  const scenes: string[] = [];
+  
+  // 从参考图片字段中提取
+  const referenceImages = extractReferenceImagesFromFirstFrameMarkdown(content, workspaceRoot);
+  if (referenceImages) {
+    for (const imagePath of referenceImages) {
+      // 检查是否是主体图片路径：subjects/角色名.png
+      const subjectMatch = imagePath.match(/subjects[\/\\]([^\/\\]+)\.(png|jpg|jpeg)$/i);
+      if (subjectMatch) {
+        // 提取主体名称（去掉扩展名）
+        const subjectName = subjectMatch[1];
+        if (!subjects.includes(subjectName)) {
+          subjects.push(subjectName);
+        }
+      }
+      
+      // 检查是否是场景图片路径：scenes/场景名.png
+      const sceneMatch = imagePath.match(/scenes[\/\\]([^\/\\]+)\.(png|jpg|jpeg)$/i);
+      if (sceneMatch) {
+        // 提取场景名称（去掉扩展名）
+        const sceneName = sceneMatch[1];
+        if (!scenes.includes(sceneName)) {
+          scenes.push(sceneName);
+        }
+      }
+    }
+  }
+  
+  return { subjects, scenes };
 }
 
 /**

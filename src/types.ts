@@ -18,6 +18,8 @@ export interface Storyboard {
   firstFrame?: string;
   /** 生成首帧的提示词，可选 */
   firstFramePrompt?: string;
+  /** 视频提示词（用于图生视频），可选 */
+  videoPrompt?: string;
   /** 参考图路径（ref-img/ 目录中的图片），可选，支持多张（逗号分隔） */
   referenceImages?: string[];
   /** 文件路径 */
