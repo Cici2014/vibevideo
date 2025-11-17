@@ -2,29 +2,115 @@
 
 **像写代码一样制作视频**
 
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/vscode)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub](https://img.shields.io/github/stars/Cici2014/vibevideo?style=social)](https://github.com/Cici2014/vibevideo)
+
 Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频：用 Markdown 写剧本，用 AI 生成分镜，批量生成视频，一键合成。
 
 ## ✨ 特性
 
 ### 🚀 轻量级工作流
 - 用 Markdown 写剧本（任意格式）
-- 用 Cursor AI 生成分镜脚本（Markdown）
+- 用 Cursor AI 一键生成完整项目结构（主体、场景、分镜、首帧）
 - 标准化的项目结构，Git 友好
+- 分镜时长固定为 5秒/10秒，便于批量处理
 
 ### 🤖 智能 AI 集成
-- 自动生成 `.cursorrules`，让 AI 理解项目结构
+- 自动生成 `.cursorrules`，让 AI 理解项目结构和工作流
+- 支持主体库管理，确保角色外观一致
+- 支持场景库管理，复用场景资源
 - 支持图生视频（更高质量、更可控）
 - 集成通义万相 API（国内服务，中文支持优秀）
 
 ### 📊 可视化管理
-- 侧边栏展示项目资源
+- 侧边栏展示项目资源（主体、场景、分镜、首帧、视频）
 - 质量检查和友好建议
 - 项目统计和进度追踪
+- 右键菜单快速生成单个资源
 
 ### 🎬 完整流程
-- 文生图：生成初始帧
-- 图生视频：基于首帧生成高质量视频
-- 视频合成：ffmpeg 合成最终视频
+1. **文生图**：生成主体图片、场景图片、首帧图片
+2. **图生视频**：基于首帧图片生成高质量视频（默认方式）
+3. **视频合成**：ffmpeg 合成最终视频
+
+## 💡 设计哲学：轻量到底
+
+Vibe Video 采用**"恰到好处"的平衡设计**，核心理念是**轻量到底**。
+
+### 🎯 三层设计原则
+
+#### 1️⃣ 轻量级部分（借助现有工具）
+- **分镜脚本生成**：利用 Cursor AI / Copilot（通过 `.cursorrules` 提供上下文）
+  - ✅ AI 编程工具已经很强，我们不需要重复造轮子
+  - ✅ 插件只提供上下文，让 AI 理解项目结构
+- **项目组织**：标准化文件结构和命名规范
+- **资源浏览**：简单的侧边栏视图
+
+#### 2️⃣ 必要的复杂性（无法避免）
+- **视频生成**：必须调用专门的视频 AI API
+  - ⚠️ AI 编程工具**不能生成视频**，这是唯一无法简化的部分
+  - ✅ 但保持简单：单一 Provider + 基础轮询
+  - ✅ 支持图生视频：提供初始帧 → 更高质量、更可控
+
+#### 3️⃣ 可选功能
+- **视频合成**：使用 ffmpeg（可选，不影响核心流程）
+
+### 🌟 核心理念
+
+#### **Markdown > JSON**
+- 分镜脚本用 **Markdown**，不是 JSON
+- 直观易读，易于编辑
+- AI 天然理解，无需复杂验证
+- Git 友好，协作方便
+
+#### **内容 > 格式**
+- 不纠结格式细节
+- 重点是教用户写好提示词
+- 验证是辅助性的，不是强制性的
+- 宽松解析，容错性强
+
+#### **约定优于配置**
+- 通过标准化的文件结构，让项目"自解释"
+- AI 可以自动理解项目意图
+- 减少配置，提高效率
+
+#### **利用现有 AI 工具**
+- 不重复造轮子
+- 用户使用 Cursor、Copilot、Claude 等工具时，插件提供上下文
+- 插件是助手，不是控制器
+
+#### **实用性优先**
+- 不追求完美的抽象设计
+- 专注于核心用户价值（批量生成视频）
+- 快速迭代：6周而不是3-4个月
+- 友好的提示，不是严格的错误
+
+### 📊 技术栈极简
+
+```
+VS Code Extension
+├── TypeScript 5.x
+├── VS Code Extension API
+├── 简单的 TreeView（资源浏览）
+└── 可选：ffmpeg（视频合成）
+
+配置文件（供AI理解）
+├── .cursorrules / .clinerules
+└── 标准化的项目结构
+```
+
+**生产依赖**：仅 1 个（通义万相 API）
+
+### 🎓 为什么这样设计？
+
+- ✅ **不过度设计**：避免重型方案的复杂性
+- ✅ **不过度简化**：确保核心功能可用
+- ✅ **快速迭代**：6周完成可用版本
+- ✅ **用户可控**：用户可以手动编辑任何文件，跳过任何步骤
+- ✅ **成本低**：利用用户已有的 AI 工具订阅
+
+**记住**：这是一个轻量级工具，核心是帮助用户"组织"和"规范化"，而不是"自动化一切"。保持简单和专注是成功的关键。
 
 ## 🚀 快速开始
 
@@ -36,13 +122,18 @@ Ctrl+Shift+P → "Vibe Video: Initialize Project"
 ### 2. 编写剧本
 编辑 `剧本.md`，写下您的视频脚本
 
-### 3. 生成分镜
-使用 Cursor AI Chat：
+### 3. 使用 AI 生成完整项目结构
+在 Cursor AI Chat 中输入：
 ```
-根据剧本.md 生成分镜脚本
+根据剧本.md 生成项目
 ```
 
-AI 会自动生成 Markdown 格式的分镜文件到 `storyboards/` 目录
+AI 会自动执行以下步骤：
+1. **提取主体**：从剧本中提取主要角色/主体，保存到 `subjects/` 目录
+2. **提取场景**：从剧本中提取各个场景，保存到 `scenes/` 目录
+3. **拆分分镜**：将场景拆分成 5秒/10秒 的分镜单元（**分镜时长只能是5秒或10秒**）
+4. **生成分镜脚本**：为每个分镜写好详细脚本，保存到 `storyboards/` 目录
+5. **生成首帧描述**：为每个分镜写好第一帧画面描述，保存到 `first-frames/` 目录
 
 ### 4. 配置 API（一次性）⭐
 
@@ -55,32 +146,58 @@ Ctrl+Shift+P → "Vibe Video: Configure Video AI"
 **方式 2**：直接打开设置（推荐）
 ```
 Ctrl+, → 搜索 "vibevideo"
-→ 输入 Access Key ID 和 Secret
+→ 输入 DashScope API Key
 ```
 
 配置会自动保存到 VS Code 设置中
 
-### 5. 生成视频（开发中）
-```
-Ctrl+Shift+P → "Vibe Video: Generate All Videos"
-```
+### 5. 生成资源
+使用侧边栏资源视图或命令：
+- **生成主体图片**：`Vibe Video: Generate All Subjects`
+- **生成场景图片**：`Vibe Video: Generate All Scenes`
+- **生成首帧图片**：`Vibe Video: Generate First Frames`
+- **生成视频**：`Vibe Video: Generate All Videos`
 
 ## 📁 项目结构
 
 ```
 MyVideoProject/
 ├── 剧本.md                   # 您的剧本
+├── subjects/                 # 主体/角色（描述 + 生成的图片）
+│   ├── 主角.md               # 主体描述
+│   ├── 主角.png              # 生成的主体图片
+│   └── ...
+├── scenes/                   # 场景（描述 + 生成的图片）
+│   ├── 城市街道.md           # 场景描述
+│   ├── 城市街道.png          # 生成的场景图片
+│   └── ...
 ├── storyboards/              # 分镜脚本（Markdown）
 │   ├── 01-opening.md
 │   └── ...
-├── assets/
-│   ├── subjects/             # 素材图片
-│   ├── first-frames/         # AI 生成的首帧
-│   ├── clips/                # 生成的视频
-│   └── audio/                # 音频
-└── output/
-    └── final.mp4             # 最终视频
+├── first-frames/             # 首帧（描述 + 生成的图片）
+│   ├── 01-opening-first-frame.md  # 首帧描述
+│   ├── 01-opening-first-frame.png # 生成的首帧图片
+│   └── ...
+├── video-clip/               # 生成的视频片段
+│   ├── 01-opening.mp4
+│   └── ...
+├── ref-img/                  # 用户自定义参考图（可选）
+│   └── product.jpg
+├── output/                   # 最终合成视频
+│   └── final.mp4
+├── .vv-context/              # AI 上下文文档（自动生成）
+├── .temp/                    # 临时文件
+├── .cursorrules              # Cursor AI 规则（自动生成）
+├── .clinerules               # Cline AI 规则（自动生成）
+└── .vv-project.json          # 项目配置（自动生成）
 ```
+
+### 📝 重要说明
+
+- **简化目录结构**：描述文件和生成的资源放在同一目录下，无需复杂的 `assets/` 嵌套结构
+- **分镜时长**：每个分镜的时长**只能是5秒或10秒**，不支持其他时长
+- **主体功能**：用于确保角色外观一致，主体图片背景为纯白色
+- **参考图**：分镜脚本会自动引用对应的首帧图片，首帧描述会自动引用相关的主体和场景图片
 
 ## 📋 要求
 
@@ -90,33 +207,54 @@ MyVideoProject/
 
 ## 🎯 命令列表
 
+### 项目管理
 - `Vibe Video: Initialize Project` - 初始化项目结构
 - `Vibe Video: Check Storyboards Quality` - 检查分镜质量
 - `Vibe Video: Show Project Stats` - 显示项目统计
 - `Vibe Video: Refresh Resources` - 刷新资源视图
+
+### 配置
+- `Vibe Video: Configure Video AI` - 配置视频 AI 服务
+- `Vibe Video: Show Current Config` - 显示当前配置
+
+### 生成资源
+- `Vibe Video: Generate All Subjects` - 批量生成所有主体图片
+- `Vibe Video: Generate All Scenes` - 批量生成所有场景图片
+- `Vibe Video: Generate First Frames` - 批量生成所有首帧图片
+- `Vibe Video: Generate All Videos` - 批量生成所有视频
+- `Vibe Video: Compose All First Frames` - 使用主体和场景合成首帧
+
+### 单个生成（右键菜单）
+- `生成主体` - 生成单个主体图片
+- `生成场景` - 生成单个场景图片
+- `生成视频` - 生成单个视频片段
 
 ## 🚧 开发状态
 
 当前版本：**0.0.1 (Alpha)**
 
 ### ✅ 已实现
-- 项目初始化
-- Markdown 分镜解析
+- 项目初始化（包含主体、场景目录）
+- Markdown 分镜解析（支持主体、场景、参考图）
+- 主体库管理（生成主体图片）
+- 场景库管理（生成场景图片）
+- 首帧生成（文生图）
+- 视频生成（图生视频，基于首帧）
+- 多图合成（主体+场景合成首帧）
 - 质量检查
 - 侧边栏资源视图
+- 通义万相 API 集成
 
 ### 🚧 开发中
-- 通义万相 API 集成
-- 文生图（初始帧）
-- 图生视频
-- 视频合成
+- 视频合成（ffmpeg 合成最终视频）
+- 并行生成优化
+- 更多 AI Provider 支持
 
 ## 📚 文档
 
 详细文档请查看 `DOC/` 目录：
-- [实施计划](DOC/plan.md) - 完整的开发计划
-- [项目总结](DOC/SUMMARY.md) - 快速概览
-- [分镜格式指南](DOC/storyboard-markdown-format.md) - 如何写分镜
+- [API Key 获取指南](DOC/API-KEY-获取指南.md) - 如何获取 DashScope API Key
+- [API 对比分析](DOC/api-comparison.md) - 视频生成 API 对比（Replicate vs 通义万相）
 
 ## 🤝 贡献
 

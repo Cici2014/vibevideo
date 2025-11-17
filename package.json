@@ -3,9 +3,30 @@
   "displayName": "VibeVideo",
   "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
   "version": "0.0.1",
+  "publisher": "fastpen",
   "engines": {
     "vscode": "^1.106.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Cici2014/vibevideo.git"
+  },
+  "homepage": "https://github.com/Cici2014/vibevideo",
+  "bugs": {
+    "url": "https://github.com/Cici2014/vibevideo/issues"
+  },
+  "license": "MIT",
+  "keywords": [
+    "video",
+    "ai",
+    "markdown",
+    "storyboard",
+    "video-editing",
+    "ai-video",
+    "video-generation",
+    "通义万相",
+    "tongyi-wanxiang"
+  ],
   "categories": [
     "Other"
   ],
