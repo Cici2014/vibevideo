@@ -23,7 +23,9 @@ Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频
 - 支持主体库管理，确保角色外观一致
 - 支持场景库管理，复用场景资源
 - 支持图生视频（更高质量、更可控）
-- 集成通义万相 API（国内服务，中文支持优秀）
+- **多 AI Provider 支持**：
+  - **通义万相 API**（国内服务，中文支持优秀）
+  - **Replicate API**（支持多种视频生成模型，如 Zeroscope、AnimateDiff 等）
 
 ### 📊 可视化管理
 - 侧边栏展示项目资源（主体、场景、分镜、首帧、视频）
@@ -121,7 +123,9 @@ VS Code Extension
 └── 标准化的项目结构
 ```
 
-**生产依赖**：仅 1 个（通义万相 API）
+**生产依赖**：
+- 通义万相 API（可选，默认）
+- Replicate API（可选，替代 Provider）
 
 ### 🎓 为什么这样设计？
 
@@ -168,8 +172,13 @@ Ctrl+Shift+P → "Vibe Video: Configure Video AI"
 **方式 2**：直接打开设置（推荐）
 ```
 Ctrl+, → 搜索 "vibevideo"
-→ 输入 DashScope API Key
+→ 选择 Provider（通义万相 或 Replicate）
+→ 输入 API Key/Token
 ```
+
+**支持的 Provider：**
+- **通义万相**：输入 DashScope API Key
+- **Replicate**：输入 Replicate API Token（从 https://replicate.com/account/api-tokens 获取）
 
 配置会自动保存到 VS Code 设置中
 
@@ -264,13 +273,14 @@ MyVideoProject/
 - 多图合成（主体+场景合成首帧）
 - 质量检查
 - 侧边栏资源视图
-- 通义万相 API 集成
+- **多 AI Provider 支持**：
+  - 通义万相 API 集成（默认）
+  - Replicate API 集成（支持 Zeroscope、AnimateDiff、SDXL 等多种模型）
 
 ### 🚧 开发中
 - 视频合成（ffmpeg 合成最终视频）
 - 并行生成优化
 - **更多 AI Provider 支持**：
-  - 集成 Replicate API，支持更多视频生成模型
   - 支持 OpenAI Sora 模型，提供更高质量的视频生成能力
 - **Claude Code Skills 支持**：
   - 集成 Claude Code 的 skills 功能，通过 skills 强化生成的提示词质量

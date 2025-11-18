@@ -23,7 +23,9 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Subject library management for consistent character appearance
 - Scene library management for reusable scene resources
 - Image-to-video generation (higher quality, more controllable)
-- Integrated Tongyi Wanxiang API (domestic service with excellent Chinese support)
+- Multiple AI Provider support:
+  - **Tongyi Wanxiang API** (domestic service with excellent Chinese support)
+  - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.)
 
 ### 📊 Visual Management
 - Sidebar displays project resources (subjects, scenes, storyboards, first frames, videos)
@@ -121,7 +123,9 @@ Configuration Files (for AI understanding)
 └── Standardized project structure
 ```
 
-**Production Dependencies**: Only 1 (Tongyi Wanxiang API)
+**Production Dependencies**: 
+- Tongyi Wanxiang API (optional, default)
+- Replicate API (optional, alternative provider)
 
 ### 🎓 Why This Design?
 
@@ -169,8 +173,13 @@ Ctrl+Shift+P → "Vibe Video: Configure Video AI"
 **Method 2**: Open Settings Directly (Recommended)
 ```
 Ctrl+, → Search "vibevideo"
-→ Enter DashScope API Key
+→ Select Provider (Tongyi Wanxiang or Replicate)
+→ Enter API Key/Token
 ```
+
+**Supported Providers:**
+- **Tongyi Wanxiang**: Enter DashScope API Key
+- **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens)
 
 Configuration is automatically saved to VS Code settings
 
@@ -265,13 +274,14 @@ Current Version: **0.0.1 (Alpha)**
 - Multi-image composition (subject + scene → first frame)
 - Quality checks
 - Sidebar resource view
-- Tongyi Wanxiang API integration
+- **Multiple AI Provider support**:
+  - Tongyi Wanxiang API integration (default)
+  - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models)
 
 ### 🚧 In Development
 - Video composition (ffmpeg composition for final video)
 - Parallel generation optimization
 - **More AI Provider Support**:
-  - Integrate Replicate API, support more video generation models
   - Support OpenAI Sora model, provide higher quality video generation capabilities
 - **Claude Code Skills Support**:
   - Integrate Claude Code's skills functionality to enhance prompt quality through skills
