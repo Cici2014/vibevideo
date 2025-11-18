@@ -1,48 +1,50 @@
 # Vibe Video
 
-**像写代码一样制作视频**
+**Create Videos Like Writing Code**
 
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/vscode)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/github/stars/Cici2014/vibevideo?style=social)](https://github.com/Cici2014/vibevideo)
 
-Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频：用 Markdown 写剧本，用 AI 生成分镜，批量生成视频，一键合成。
+**Language / 语言**: [English](README.md) | [中文简体](README_CN.md)
 
-## ✨ 特性
+Vibe Video is a VS Code extension that lets you create videos like writing code: write scripts in Markdown, generate storyboards with AI, batch generate videos, and compose them with one click.
 
-### 🚀 轻量级工作流
-- 用 Markdown 写剧本（任意格式）
-- 用 Cursor AI 一键生成完整项目结构（主体、场景、分镜、首帧）
-- 标准化的项目结构，Git 友好
-- 分镜时长固定为 5秒/10秒，便于批量处理
+## ✨ Features
 
-### 🤖 智能 AI 集成
-- 自动生成 `.cursorrules`，让 AI 理解项目结构和工作流
-- 支持主体库管理，确保角色外观一致
-- 支持场景库管理，复用场景资源
-- 支持图生视频（更高质量、更可控）
-- 集成通义万相 API（国内服务，中文支持优秀）
+### 🚀 Lightweight Workflow
+- Write scripts in Markdown (any format)
+- Use Cursor AI to generate complete project structure with one click (subjects, scenes, storyboards, first frames)
+- Standardized project structure, Git-friendly
+- Fixed storyboard duration (5s/10s) for easy batch processing
 
-### 📊 可视化管理
-- 侧边栏展示项目资源（主体、场景、分镜、首帧、视频）
-- 质量检查和友好建议
-- 项目统计和进度追踪
-- 右键菜单快速生成单个资源
+### 🤖 Smart AI Integration
+- Auto-generate `.cursorrules` to help AI understand project structure and workflow
+- Subject library management for consistent character appearance
+- Scene library management for reusable scene resources
+- Image-to-video generation (higher quality, more controllable)
+- Integrated Tongyi Wanxiang API (domestic service with excellent Chinese support)
 
-### 🎬 完整流程
+### 📊 Visual Management
+- Sidebar displays project resources (subjects, scenes, storyboards, first frames, videos)
+- Quality checks and friendly suggestions
+- Project statistics and progress tracking
+- Right-click menu for quick single resource generation
 
-Vibe Video 的工作流就像写代码一样：**编写 → 生成 → 审核 → 迭代**。
+### 🎬 Complete Workflow
+
+Vibe Video's workflow is like writing code: **Write → Generate → Review → Iterate**.
 
 ```mermaid
 flowchart LR
-    A[📝 编写剧本<br/>AI辅助] --> B[🤖 生成项目结构<br/>主体/场景/分镜/首帧]
-    B --> C[🖼️ 生成图片资源<br/>主体/场景/首帧]
-    C --> D[🎬 生成视频片段]
-    D --> E[✅ 完成]
+    A[📝 Write Script<br/>AI-assisted] --> B[🤖 Generate Project Structure<br/>Subjects/Scenes/Storyboards/First Frames]
+    B --> C[🖼️ Generate Image Resources<br/>Subjects/Scenes/First Frames]
+    C --> D[🎬 Generate Video Clips]
+    D --> E[✅ Complete]
     
-    B -.审核/迭代.-> B
-    C -.审核/迭代.-> C
-    D -.审核/迭代.-> D
+    B -.Review/Iterate.-> B
+    C -.Review/Iterate.-> C
+    D -.Review/Iterate.-> D
     
     style A fill:#e1f5ff
     style B fill:#fff4e1
@@ -51,256 +53,258 @@ flowchart LR
     style E fill:#c8e6c9
 ```
 
-**核心理念**：整个过程可以反复迭代，就像编码一样。生成资源就像"编译"，人工审核就像"找 bug"。如果不通过，可以多次迭代，直到满意为止。
+**Core Philosophy**: The entire process can be iterated repeatedly, just like coding. Generating resources is like "compiling", and manual review is like "finding bugs". If it doesn't pass, you can iterate multiple times until satisfied.
 
-## 💡 设计哲学：轻量到底
+## 💡 Design Philosophy: Lightweight to the Core
 
-Vibe Video 采用"恰到好处"的平衡设计，核心理念是**轻量到底**。
+Vibe Video adopts a "just right" balanced design with the core philosophy of **lightweight to the core**.
 
-### 🎯 三层设计原则
+### 🎯 Three-Layer Design Principles
 
-#### 1️⃣ 轻量级部分（借助现有工具）
-- **分镜脚本生成**：利用 Cursor AI / Copilot（通过 `.cursorrules` 提供上下文）
-  - ✅ AI 编程工具已经很强，我们不需要重复造轮子
-  - ✅ 插件只提供上下文，让 AI 理解项目结构
-- **项目组织**：标准化文件结构和命名规范
-- **资源浏览**：简单的侧边栏视图
+#### 1️⃣ Lightweight Parts (Leverage Existing Tools)
+- **Storyboard Script Generation**: Use Cursor AI / Copilot (provide context via `.cursorrules`)
+  - ✅ AI programming tools are already powerful, we don't need to reinvent the wheel
+  - ✅ The extension only provides context to help AI understand project structure
+- **Project Organization**: Standardized file structure and naming conventions
+- **Resource Browsing**: Simple sidebar view
 
-#### 2️⃣ 必要的复杂性（无法避免）
-- **视频生成**：必须调用专门的视频 AI API
-  - ⚠️ 如果让 AI 编程工具接入生成视频MCP理论上可行，但是过于烧钱
-  - ✅ 但保持简单：单一 Provider + 基础轮询
-  - ✅ 支持图生视频：提供初始帧 → 更高质量、更可控
+#### 2️⃣ Necessary Complexity (Unavoidable)
+- **Video Generation**: Must call specialized video AI APIs
+  - ⚠️ Theoretically possible to let AI programming tools access video generation via MCP, but too expensive
+  - ✅ Keep it simple: Single Provider + basic polling
+  - ✅ Support image-to-video: Provide initial frame → higher quality, more controllable
 
-#### 3️⃣ 可选功能
-- **视频合成**：使用 ffmpeg（可选，不影响核心流程）
+#### 3️⃣ Optional Features
+- **Video Composition**: Use ffmpeg (optional, doesn't affect core workflow)
 
-### 🌟 核心理念
+### 🌟 Core Concepts
 
 #### **Markdown > JSON**
-- 分镜脚本用 **Markdown**，不是 JSON
-- 直观易读，易于编辑
-- AI 天然理解，无需复杂验证
-- Git 友好，协作方便
+- Storyboard scripts use **Markdown**, not JSON
+- Intuitive and easy to read
+- AI naturally understands, no complex validation needed
+- Git-friendly, easy collaboration
 
-#### **内容 > 格式**
-- 不纠结格式细节
-- 重点是教用户写好提示词
-- 验证是辅助性的，不是强制性的
-- 宽松解析，容错性强
+#### **Content > Format**
+- Don't obsess over format details
+- Focus on teaching users to write good prompts
+- Validation is auxiliary, not mandatory
+- Loose parsing, strong error tolerance
 
-#### **约定优于配置**
-- 通过标准化的文件结构，让项目"自解释"
-- AI 可以自动理解项目意图
-- 减少配置，提高效率
+#### **Convention Over Configuration**
+- Make projects "self-explanatory" through standardized file structure
+- AI can automatically understand project intent
+- Reduce configuration, improve efficiency
 
-#### **利用现有 AI 工具**
-- 不重复造轮子
-- 用户使用 Cursor、Copilot、Claude 等工具时，插件提供上下文
-- 插件是助手，不是控制器
+#### **Leverage Existing AI Tools**
+- Don't reinvent the wheel
+- When users use Cursor, Copilot, Claude, etc., the extension provides context
+- Extension is an assistant, not a controller
 
-#### **实用性优先**
-- 不追求完美的抽象设计
-- 专注于核心用户价值（批量生成视频）
-- 快速迭代：6周而不是3-4个月
-- 友好的提示，不是严格的错误
+#### **Practicality First**
+- Don't pursue perfect abstract design
+- Focus on core user value (batch video generation)
+- Fast iteration: 6 weeks instead of 3-4 months
+- Friendly prompts, not strict errors
 
-### 📊 技术栈极简
+### 📊 Minimal Tech Stack
 
 ```
 VS Code Extension
 ├── TypeScript 5.x
 ├── VS Code Extension API
-├── 简单的 TreeView（资源浏览）
-└── 可选：ffmpeg（视频合成）
+├── Simple TreeView (resource browsing)
+└── Optional: ffmpeg (video composition)
 
-配置文件（供AI理解）
+Configuration Files (for AI understanding)
 ├── .cursorrules / .clinerules
-└── 标准化的项目结构
+└── Standardized project structure
 ```
 
-**生产依赖**：仅 1 个（通义万相 API）
+**Production Dependencies**: Only 1 (Tongyi Wanxiang API)
 
-### 🎓 为什么这样设计？
+### 🎓 Why This Design?
 
-- ✅ **不过度设计**：避免重型方案的复杂性
-- ✅ **不过度简化**：确保核心功能可用
-- ✅ **快速迭代**：6周完成可用版本
-- ✅ **用户可控**：用户可以手动编辑任何文件，跳过任何步骤
-- ✅ **成本低**：利用用户已有的 AI 工具订阅
+- ✅ **No Over-Engineering**: Avoid complexity of heavy solutions
+- ✅ **No Over-Simplification**: Ensure core functionality is usable
+- ✅ **Fast Iteration**: Complete usable version in 6 weeks
+- ✅ **User Control**: Users can manually edit any file, skip any step
+- ✅ **Low Cost**: Leverage users' existing AI tool subscriptions
 
-**记住**：这是一个轻量级工具，核心是帮助用户"组织"和"规范化"，而不是"自动化一切"。保持简单和专注是成功的关键。
+**Remember**: This is a lightweight tool. The core is to help users "organize" and "standardize", not "automate everything". Keeping it simple and focused is key to success.
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 初始化项目
+### 1. Initialize Project
 ```
 Ctrl+Shift+P → "Vibe Video: Initialize Project"
 ```
-或者在左侧 Vibe Video 资源树中点击“初始化项目”
+Or click "Initialize Project" in the left Vibe Video resource tree
 
-### 2. 编写剧本
-编辑 `剧本.md`，写下您的视频脚本
+### 2. Write Script
+Edit `剧本.md` (Script.md) and write your video script
 
-### 3. 使用 AI 生成完整项目结构
-在 Cursor AI Chat 中输入：
+### 3. Use AI to Generate Complete Project Structure
+In Cursor AI Chat, enter:
 ```
 根据剧本.md 生成项目
 ```
+(Generate project based on 剧本.md)
 
-AI 会自动执行以下步骤：
-1. **提取主体**：从剧本中提取主要角色/主体，保存到 `subjects/` 目录
-2. **提取场景**：从剧本中提取各个场景，保存到 `scenes/` 目录
-3. **拆分分镜**：将场景拆分成 5秒/10秒 的分镜单元（**分镜时长只能是5秒或10秒**）
-4. **生成分镜脚本**：为每个分镜写好详细脚本，保存到 `storyboards/` 目录
-5. **生成首帧描述**：为每个分镜写好第一帧画面描述，保存到 `first-frames/` 目录
+AI will automatically execute the following steps:
+1. **Extract Subjects**: Extract main characters/subjects from the script, save to `subjects/` directory
+2. **Extract Scenes**: Extract various scenes from the script, save to `scenes/` directory
+3. **Split Storyboards**: Split scenes into 5s/10s storyboard units (**Storyboard duration can only be 5s or 10s**)
+4. **Generate Storyboard Scripts**: Write detailed scripts for each storyboard, save to `storyboards/` directory
+5. **Generate First Frame Descriptions**: Write first frame descriptions for each storyboard, save to `first-frames/` directory
 
-### 4. 配置 API（一次性）⭐
+### 4. Configure API (One-time) ⭐
 
-**方式 1**：使用命令
+**Method 1**: Use Command
 ```
 Ctrl+Shift+P → "Vibe Video: Configure Video AI"
-→ 点击"打开设置"
+→ Click "Open Settings"
 ```
 
-**方式 2**：直接打开设置（推荐）
+**Method 2**: Open Settings Directly (Recommended)
 ```
-Ctrl+, → 搜索 "vibevideo"
-→ 输入 DashScope API Key
+Ctrl+, → Search "vibevideo"
+→ Enter DashScope API Key
 ```
 
-配置会自动保存到 VS Code 设置中
+Configuration is automatically saved to VS Code settings
 
-### 5. 生成资源
-使用侧边栏资源视图或命令：
-- **生成主体图片**：`Vibe Video: Generate All Subjects`
-- **生成场景图片**：`Vibe Video: Generate All Scenes`
-- **生成首帧图片**：`Vibe Video: Generate First Frames`
-- **生成视频**：`Vibe Video: Generate All Videos`
+### 5. Generate Resources
+Use sidebar resource view or commands:
+- **Generate Subject Images**: `Vibe Video: Generate All Subjects`
+- **Generate Scene Images**: `Vibe Video: Generate All Scenes`
+- **Generate First Frame Images**: `Vibe Video: Generate First Frames`
+- **Generate Videos**: `Vibe Video: Generate All Videos`
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 MyVideoProject/
-├── 剧本.md                   # 您的剧本
-├── subjects/                 # 主体/角色（描述 + 生成的图片）
-│   ├── 主角.md               # 主体描述
-│   ├── 主角.png              # 生成的主体图片
+├── 剧本.md                   # Your script
+├── subjects/                 # Subjects/Characters (description + generated images)
+│   ├── 主角.md               # Subject description
+│   ├── 主角.png              # Generated subject image
 │   └── ...
-├── scenes/                   # 场景（描述 + 生成的图片）
-│   ├── 城市街道.md           # 场景描述
-│   ├── 城市街道.png          # 生成的场景图片
+├── scenes/                   # Scenes (description + generated images)
+│   ├── 城市街道.md           # Scene description
+│   ├── 城市街道.png          # Generated scene image
 │   └── ...
-├── storyboards/              # 分镜脚本（Markdown）
+├── storyboards/              # Storyboard scripts (Markdown)
 │   ├── 01-opening.md
 │   └── ...
-├── first-frames/             # 首帧（描述 + 生成的图片）
-│   ├── 01-opening-first-frame.md  # 首帧描述
-│   ├── 01-opening-first-frame.png # 生成的首帧图片
+├── first-frames/             # First frames (description + generated images)
+│   ├── 01-opening-first-frame.md  # First frame description
+│   ├── 01-opening-first-frame.png # Generated first frame image
 │   └── ...
-├── video-clip/               # 生成的视频片段
+├── video-clip/               # Generated video clips
 │   ├── 01-opening.mp4
 │   └── ...
-├── ref-img/                  # 用户自定义参考图（可选）
+├── ref-img/                  # User-defined reference images (optional)
 │   └── product.jpg
-├── output/                   # 最终合成视频
+├── output/                   # Final composed video
 │   └── final.mp4
-├── .vv-context/              # AI 上下文文档（自动生成）
-├── .temp/                    # 临时文件
-├── .cursorrules              # Cursor AI 规则（自动生成）
-├── .clinerules               # Cline AI 规则（自动生成）
-└── .vv-project.json          # 项目配置（自动生成）
+├── .vv-context/              # AI context documents (auto-generated)
+├── .temp/                    # Temporary files
+├── .cursorrules              # Cursor AI rules (auto-generated)
+├── .clinerules               # Cline AI rules (auto-generated)
+└── .vv-project.json          # Project configuration (auto-generated)
 ```
 
-### 📝 重要说明
+### 📝 Important Notes
 
-- **分镜时长**：每个分镜的时长**只能是5秒或10秒**，不支持其他时长
-- **主体功能**：用于确保角色外观一致，主体图片背景为纯白色
-- **参考图**：说明需要参考的图片，用文件地址URL表示
+- **Storyboard Duration**: Each storyboard duration **can only be 5s or 10s**, other durations are not supported
+- **Subject Function**: Used to ensure consistent character appearance, subject images have pure white background
+- **Reference Images**: Specify images to reference, represented by file address URLs
 
-## 📋 要求
+## 📋 Requirements
 
-- VS Code 1.105.0 或更高版本
+- VS Code 1.105.0 or higher
 - Node.js 18+
-- （可选）ffmpeg - 用于视频合成
+- (Optional) ffmpeg - for video composition
 
-## 🎯 命令列表
+## 🎯 Command List
 
-### 项目管理
-- `Vibe Video: Initialize Project` - 初始化项目结构
-- `Vibe Video: Check Storyboards Quality` - 检查分镜质量
-- `Vibe Video: Show Project Stats` - 显示项目统计
-- `Vibe Video: Refresh Resources` - 刷新资源视图
+### Project Management
+- `Vibe Video: Initialize Project` - Initialize project structure
+- `Vibe Video: Check Storyboards Quality` - Check storyboard quality
+- `Vibe Video: Show Project Stats` - Show project statistics
+- `Vibe Video: Refresh Resources` - Refresh resource view
 
-### 配置
-- `Vibe Video: Configure Video AI` - 配置视频 AI 服务
-- `Vibe Video: Show Current Config` - 显示当前配置
+### Configuration
+- `Vibe Video: Configure Video AI` - Configure video AI service
+- `Vibe Video: Show Current Config` - Show current configuration
 
-### 生成资源
-- `Vibe Video: Generate All Subjects` - 批量生成所有主体图片
-- `Vibe Video: Generate All Scenes` - 批量生成所有场景图片
-- `Vibe Video: Generate First Frames` - 批量生成所有首帧图片
-- `Vibe Video: Generate All Videos` - 批量生成所有视频
-- `Vibe Video: Compose All First Frames` - 使用主体和场景合成首帧
+### Generate Resources
+- `Vibe Video: Generate All Subjects` - Batch generate all subject images
+- `Vibe Video: Generate All Scenes` - Batch generate all scene images
+- `Vibe Video: Generate First Frames` - Batch generate all first frame images
+- `Vibe Video: Generate All Videos` - Batch generate all videos
+- `Vibe Video: Compose All First Frames` - Compose first frames using subjects and scenes
 
-### 单个生成（右键菜单）
-- `生成主体` - 生成单个主体图片
-- `生成场景` - 生成单个场景图片
-- `生成视频` - 生成单个视频片段
+### Single Generation (Right-click Menu)
+- `生成主体` (Generate Subject) - Generate single subject image
+- `生成场景` (Generate Scene) - Generate single scene image
+- `生成视频` (Generate Video) - Generate single video clip
 
-## 🚧 开发状态
+## 🚧 Development Status
 
-当前版本：**0.0.1 (Alpha)**
+Current Version: **0.0.1 (Alpha)**
 
-### ✅ 已实现
-- 项目初始化（包含主体、场景目录）
-- Markdown 分镜解析（支持主体、场景、参考图）
-- 主体库管理（生成主体图片）
-- 场景库管理（生成场景图片）
-- 首帧生成（文生图）
-- 视频生成（图生视频，基于首帧）
-- 多图合成（主体+场景合成首帧）
-- 质量检查
-- 侧边栏资源视图
-- 通义万相 API 集成
+### ✅ Implemented
+- Project initialization (including subjects, scenes directories)
+- Markdown storyboard parsing (supports subjects, scenes, reference images)
+- Subject library management (generate subject images)
+- Scene library management (generate scene images)
+- First frame generation (text-to-image)
+- Video generation (image-to-video, based on first frames)
+- Multi-image composition (subject + scene → first frame)
+- Quality checks
+- Sidebar resource view
+- Tongyi Wanxiang API integration
 
-### 🚧 开发中
-- 视频合成（ffmpeg 合成最终视频）
-- 并行生成优化
-- **更多 AI Provider 支持**：
-  - 集成 Replicate API，支持更多视频生成模型
-  - 支持 OpenAI Sora 模型，提供更高质量的视频生成能力
-- **Claude Code Skills 支持**：
-  - 集成 Claude Code 的 skills 功能，通过 skills 强化生成的提示词质量
-  - 提供丰富的优秀提示词示例库（产品展示、生活方式、故事类等场景）
-  - 基于示例库自动优化主体描述、场景描述和首帧描述的生成质量
-  - 通过 skills 让 AI 学习最佳实践，生成更专业、更符合视频制作要求的提示词
-  - 提升 AI 生成内容的一致性、准确性和可执行性
+### 🚧 In Development
+- Video composition (ffmpeg composition for final video)
+- Parallel generation optimization
+- **More AI Provider Support**:
+  - Integrate Replicate API, support more video generation models
+  - Support OpenAI Sora model, provide higher quality video generation capabilities
+- **Claude Code Skills Support**:
+  - Integrate Claude Code's skills functionality to enhance prompt quality through skills
+  - Provide rich excellent prompt example library (product showcase, lifestyle, story scenarios, etc.)
+  - Automatically optimize subject descriptions, scene descriptions, and first frame descriptions based on example library
+  - Let AI learn best practices through skills, generate more professional prompts that meet video production requirements
+  - Improve consistency, accuracy, and executability of AI-generated content
 
-## 📚 文档
+## 📚 Documentation
 
-详细文档请查看 `DOC/` 目录：
-- [使用教程](DOC/tutorial.md) - Vibe Video 完整使用指南（待完善）
-- [API Key 获取指南](DOC/API-KEY-获取指南.md) - 如何获取 DashScope API Key
-- [API 对比分析](DOC/api-comparison.md) - 视频生成 API 对比（Replicate vs 通义万相）
+Detailed documentation can be found in the `DOC/` directory:
+- [Tutorial](DOC/tutorial.md) - Complete Vibe Video usage guide (to be completed)
+- [API Key Guide](DOC/API-KEY-Guide_EN.md) - How to get DashScope API Key
+- [API Comparison](DOC/api-comparison_EN.md) - Video generation API comparison (Replicate vs Tongyi Wanxiang)
+- [Local Deployment Guide](DOC/Local-Deployment-Wan2.5-Guide_EN.md) - How to configure local Wan2.5 deployment
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+Issues and Pull Requests are welcome!
 
-## 📮 联系方式
+## 📮 Contact
 
-如有问题或建议，欢迎联系：
+For questions or suggestions, please contact:
 
-- 📧 邮箱：cici_yiyi@qq.com
-- 💬 微信：扫码添加（二维码图片）
+- 📧 Email: cici_yiyi@qq.com
+- 💬 WeChat: Scan QR code to add (QR code image)
 
-![微信二维码](wechat-qrcode.png)
+![WeChat QR Code](wechat-qrcode.png)
 
-### 💼 服务支持
+### 💼 Service Support
 
-- 🔧 **技术支持**：提供使用过程中的技术问题解答和故障排查
-- 🎨 **定制开发**：根据您的需求提供功能定制和二次开发服务
+- 🔧 **Technical Support**: Provide technical problem solving and troubleshooting during use
+- 🎨 **Custom Development**: Provide feature customization and secondary development services according to your needs
 
 ## 📄 License
 
@@ -308,4 +312,5 @@ MIT
 
 ---
 
-**享受用 Vibe Video 制作视频的乐趣！** 🎬
+**Enjoy creating videos with Vibe Video!** 🎬
+
