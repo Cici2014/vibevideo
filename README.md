@@ -34,29 +34,21 @@ Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频
 Vibe Video 的工作流就像写代码一样：**编写 → 生成 → 审核 → 迭代**。
 
 ```mermaid
-flowchart TD
-    A[📝 利用AI编辑剧本] --> B{人工审核剧本}
-    B -->|不通过| A
-    B -->|通过| C[🤖 AI提取主体和场景描述<br/>生成分镜脚本和首帧描述]
-    C --> D{人工审核描述质量}
-    D -->|不通过| C
-    D -->|通过| E[🖼️ 点击按钮生成主体和场景图片]
-    E --> F{人工审核图片质量}
-    F -->|不通过| E
-    F -->|通过| G[🖼️ 点击按钮生成首帧图片]
-    G --> H{人工审核首帧质量}
-    H -->|不通过| G
-    H -->|通过| I[🎬 点击按钮生成分镜视频]
-    I --> J{人工审核视频质量}
-    J -->|不通过| I
-    J -->|通过| K[✅ 完成]
+flowchart LR
+    A[📝 编写剧本<br/>AI辅助] --> B[🤖 生成项目结构<br/>主体/场景/分镜/首帧]
+    B --> C[🖼️ 生成图片资源<br/>主体/场景/首帧]
+    C --> D[🎬 生成视频片段]
+    D --> E[✅ 完成]
+    
+    B -.审核/迭代.-> B
+    C -.审核/迭代.-> C
+    D -.审核/迭代.-> D
     
     style A fill:#e1f5ff
-    style C fill:#fff4e1
-    style E fill:#e8f5e9
-    style G fill:#e8f5e9
-    style I fill:#f3e5f5
-    style K fill:#c8e6c9
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#c8e6c9
 ```
 
 **核心理念**：整个过程可以反复迭代，就像编码一样。生成资源就像"编译"，人工审核就像"找 bug"。如果不通过，可以多次迭代，直到满意为止。
@@ -275,17 +267,40 @@ MyVideoProject/
 ### 🚧 开发中
 - 视频合成（ffmpeg 合成最终视频）
 - 并行生成优化
-- 更多 AI Provider 支持
+- **更多 AI Provider 支持**：
+  - 集成 Replicate API，支持更多视频生成模型
+  - 支持 OpenAI Sora 模型，提供更高质量的视频生成能力
+- **Claude Code Skills 支持**：
+  - 集成 Claude Code 的 skills 功能，通过 skills 强化生成的提示词质量
+  - 提供丰富的优秀提示词示例库（产品展示、生活方式、故事类等场景）
+  - 基于示例库自动优化主体描述、场景描述和首帧描述的生成质量
+  - 通过 skills 让 AI 学习最佳实践，生成更专业、更符合视频制作要求的提示词
+  - 提升 AI 生成内容的一致性、准确性和可执行性
 
 ## 📚 文档
 
 详细文档请查看 `DOC/` 目录：
+- [使用教程](DOC/tutorial.md) - Vibe Video 完整使用指南（待完善）
 - [API Key 获取指南](DOC/API-KEY-获取指南.md) - 如何获取 DashScope API Key
 - [API 对比分析](DOC/api-comparison.md) - 视频生成 API 对比（Replicate vs 通义万相）
 
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
+## 📮 联系方式
+
+如有问题或建议，欢迎联系：
+
+- 📧 邮箱：cici_yiyi@qq.com
+- 💬 微信：扫码添加（二维码图片）
+
+![微信二维码](wechat-qrcode.png)
+
+### 💼 服务支持
+
+- 🔧 **技术支持**：提供使用过程中的技术问题解答和故障排查
+- 🎨 **定制开发**：根据您的需求提供功能定制和二次开发服务
 
 ## 📄 License
 
