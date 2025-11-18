@@ -10,6 +10,8 @@
 
 Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频：用 Markdown 写剧本，用 AI 生成分镜，批量生成视频，一键合成。
 
+![插件演示](img/preview.gif)
+
 ## ✨ 特性
 
 ### 🚀 轻量级工作流

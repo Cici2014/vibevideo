@@ -10,6 +10,8 @@
 
 Vibe Video is a VS Code extension that lets you create videos like writing code: write scripts in Markdown, generate storyboards with AI, batch generate videos, and compose them with one click.
 
+![Plugin Demo](img/preview.gif)
+
 ## ✨ Features
 
 ### 🚀 Lightweight Workflow
