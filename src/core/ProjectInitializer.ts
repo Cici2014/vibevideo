@@ -8,7 +8,6 @@ import { VVProjectConfig } from '../types';
 import { ensureDir, writeFile, fileExists } from '../utils/fileSystem';
 import {
   generateCursorRules,
-  generateClineRules,
   generateProjectConfig,
   generateExampleScript,
   generateContextReadme,
@@ -76,16 +75,37 @@ export class ProjectInitializer {
       JSON.stringify(config, null, 2)
     );
 
-    // .cursorrules
+    // 生成所有 AI 工具的规则文件（统一从 AI-rules.md 读取）
+    const aiRulesContent = await generateCursorRules(); // 统一内容
+    
+    // Cursor
     await writeFile(
       path.join(rootPath, '.cursorrules'),
-      await generateCursorRules()
+      aiRulesContent
     );
 
-    // .clinerules
+    // Cline
     await writeFile(
       path.join(rootPath, '.clinerules'),
-      await generateClineRules()
+      aiRulesContent
+    );
+
+    // Aider
+    await writeFile(
+      path.join(rootPath, '.aiderrules'),
+      aiRulesContent
+    );
+
+    // Claude Code
+    await writeFile(
+      path.join(rootPath, '.claude-rules'),
+      aiRulesContent
+    );
+
+    // Gemini Code
+    await writeFile(
+      path.join(rootPath, '.gemini-rules'),
+      aiRulesContent
     );
 
     // .gitignore（添加敏感信息）
