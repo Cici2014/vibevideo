@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import { VideoAIProvider } from './types';
 import { TongyiWanxiangProvider } from './TongyiWanxiangProvider';
+import { ReplicateProvider } from './ReplicateProvider';
 import { ConfigManager } from '../core/ConfigManager';
 
 export class ProviderManager {
@@ -35,6 +36,12 @@ export class ProviderManager {
         throw new Error('通义万相配置不完整');
       }
       this.currentProvider = new TongyiWanxiangProvider(tongyiConfig);
+    } else if (config.provider === 'replicate') {
+      const replicateConfig = await this.configManager.getReplicateConfig();
+      if (!replicateConfig) {
+        throw new Error('Replicate 配置不完整');
+      }
+      this.currentProvider = new ReplicateProvider(replicateConfig);
     } else {
       throw new Error(`不支持的 Provider: ${config.provider}`);
     }

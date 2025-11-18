@@ -212,10 +212,12 @@
           "type": "string",
           "default": "tongyi-wanxiang",
           "enum": [
-            "tongyi-wanxiang"
+            "tongyi-wanxiang",
+            "replicate"
           ],
           "enumDescriptions": [
-            "通义万相 - 国内服务，中文支持优秀，支持图生视频"
+            "通义万相 - 国内服务，中文支持优秀，支持图生视频",
+            "Replicate - 国际服务，支持多种开源模型，图生视频和文生视频"
           ],
           "description": "视频 AI 服务商",
           "order": 1
@@ -257,6 +259,27 @@
           "maximum": 30,
           "description": "默认视频时长（秒）",
           "order": 5
+        },
+        "vibevideo.replicate.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Replicate API Token（访问 https://replicate.com/account/api-tokens 获取）",
+          "markdownDescription": "Replicate API Token\n\n[点击获取 API Token](https://replicate.com/account/api-tokens)",
+          "order": 6
+        },
+        "vibevideo.replicate.imageModel": {
+          "type": "string",
+          "default": "",
+          "description": "Replicate 文生图模型（可选，留空使用默认 SDXL 模型）",
+          "markdownDescription": "Replicate 文生图模型\n\n留空则使用默认的 SDXL 模型。\n\n示例：`stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b`",
+          "order": 7
+        },
+        "vibevideo.replicate.videoModel": {
+          "type": "string",
+          "default": "",
+          "description": "Replicate 视频生成模型（可选，留空使用默认 zeroscope-v2-xl 模型）",
+          "markdownDescription": "Replicate 视频生成模型\n\n留空则使用默认的 zeroscope-v2-xl 模型。\n\n示例：`anotherjesse/zeroscope-v2-xl:9f1749f3b47d1c0b26555735804e7c15e53a0b7c29889a47e8b8c0b0e55e0c6c`",
+          "order": 8
         }
       }
     }
@@ -274,6 +297,9 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vscode-test"
+  },
+  "dependencies": {
+    "replicate": "^0.34.1"
   },
   "devDependencies": {
     "@types/vscode": "^1.106.0",

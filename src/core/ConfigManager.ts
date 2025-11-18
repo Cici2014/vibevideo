@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ProviderConfig, TongyiConfig } from '../providers/types';
+import { ProviderConfig, TongyiConfig, ReplicateConfig } from '../providers/types';
 
 export class ConfigManager {
   private context: vscode.ExtensionContext;
@@ -41,6 +41,10 @@ export class ConfigManager {
       const config = await this.getTongyiConfig();
       return !!(config?.apiKey);
     }
+    if (provider === 'replicate') {
+      const config = await this.getReplicateConfig();
+      return !!(config?.apiKey);
+    }
     return false;
   }
 
@@ -60,6 +64,27 @@ export class ConfigManager {
     return {
       apiKey,
       baseUrl: baseUrl || undefined
+    };
+  }
+
+  /**
+   * 获取 Replicate 配置
+   */
+  async getReplicateConfig(): Promise<ReplicateConfig | undefined> {
+    const config = this.getConfig();
+    
+    const apiKey = config.get<string>('replicate.apiKey', '');
+    const imageModel = config.get<string>('replicate.imageModel', '');
+    const videoModel = config.get<string>('replicate.videoModel', '');
+
+    if (!apiKey) {
+      return undefined;
+    }
+
+    return {
+      apiKey,
+      imageModel: imageModel || undefined,
+      videoModel: videoModel || undefined
     };
   }
 

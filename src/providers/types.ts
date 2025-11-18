@@ -90,3 +90,15 @@ export interface TongyiConfig {
   baseUrl?: string;
 }
 
+/**
+ * Replicate 配置
+ */
+export interface ReplicateConfig {
+  /** Replicate API Token（访问 https://replicate.com/account/api-tokens 获取） */
+  apiKey: string;
+  /** 文生图模型（可选，默认使用 SDXL） */
+  imageModel?: string;
+  /** 视频生成模型（可选，默认使用 zeroscope-v2-xl） */
+  videoModel?: string;
+}
+
