@@ -346,6 +346,6 @@ export async function generateShotGuide(): Promise<string> {
  * 生成提示词示例
  */
 export async function generatePromptExamples(): Promise<string> {
-  return await loadRequiredTemplate('prompt-examples.md');
+  return await loadRequiredTemplate('storyboard-prompt-examples.md');
 }
 

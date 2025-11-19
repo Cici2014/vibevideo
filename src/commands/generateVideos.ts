@@ -179,7 +179,7 @@ function convertResolutionToSize(resolution: string): string {
 /**
  * 生成单个视频
  */
-async function generateSingleVideo(
+export async function generateSingleVideo(
   storyboard: Storyboard,
   provider: any,
   configManager: ConfigManager,
@@ -290,11 +290,20 @@ async function generateSingleVideo(
 3. 保持统一的美术风格、光线方向和渲染质量
 4. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
         
         // 下载临时图片
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        // 检查返回的是 URL 还是 task_id
+        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
+          // 直接是 URL，直接下载
+          await provider.client.downloadResource(tempImageResult, tempImagePath);
+        } else {
+          // 是 task_id，需要轮询任务状态
+          await pollTaskStatus(provider, tempImageResult);
+          await provider.downloadResource(tempImageResult, tempImagePath);
+        }
         
         imagePath = tempImagePath;
         imageSource = `主体+场景合成`;
@@ -330,9 +339,18 @@ async function generateSingleVideo(
 2. 保持统一的美术风格、光线方向和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        // 检查返回的是 URL 还是 task_id
+        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
+          // 直接是 URL，直接下载
+          await provider.client.downloadResource(tempImageResult, tempImagePath);
+        } else {
+          // 是 task_id，需要轮询任务状态
+          await pollTaskStatus(provider, tempImageResult);
+          await provider.downloadResource(tempImageResult, tempImagePath);
+        }
         
         imagePath = tempImagePath;
         imageSource = `主体合成`;
@@ -368,9 +386,18 @@ async function generateSingleVideo(
 2. 保持统一的美术风格和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        await provider.client.downloadResource(tempImageUrl, tempImagePath);
+        
+        // 检查返回的是 URL 还是 task_id
+        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
+          // 直接是 URL，直接下载
+          await provider.client.downloadResource(tempImageResult, tempImagePath);
+        } else {
+          // 是 task_id，需要轮询任务状态
+          await pollTaskStatus(provider, tempImageResult);
+          await provider.downloadResource(tempImageResult, tempImagePath);
+        }
         
         imagePath = tempImagePath;
         imageSource = `场景合成`;

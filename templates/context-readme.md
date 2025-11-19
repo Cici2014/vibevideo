@@ -6,7 +6,7 @@
 ## 文件说明
 - `storyboard-guide.md`: 如何写好分镜描述
 - `shot-guide.md`: 镜头类型参考
-- `prompt-examples.md`: 提示词示例
+- `storyboard-prompt-examples.md`: 提示词示例
 
 ## 给 AI 助手的说明
 你的主要任务是帮助用户生成高质量的分镜脚本。

@@ -121,6 +121,60 @@ Vibe Video 扩展的所有重要变更都会记录在这个文件中。
 
 ---
 
+## [0.0.3] - 2025-11-19
+
+### ✅ 新增功能
+
+#### 首尾帧生成视频 ⭐
+- 实现 `Vibe Video: Generate Video From First Last Frame` 命令
+- 实现 `Vibe Video: Generate All Videos From First Last Frame` 命令
+- 支持在分镜脚本中指定尾帧（`lastFrame` 字段）
+- 使用通义万相 `wan2.2-kf2v-flash` 模型，支持首帧+尾帧生成视频
+- 智能回退：如果只有首帧，自动使用普通图生视频
+- 批量生成支持，显示详细进度和统计信息
+- 完整的错误处理和用户提示
+
+#### 分镜解析增强
+- 扩展 `StoryboardParser` 支持提取尾帧路径
+- 支持多种尾帧格式：`- **尾帧**: path`、`- lastFrame: path`、`[尾帧: path]`
+- 更新 `Storyboard` 类型定义，添加 `lastFrame` 字段
+
+#### API 客户端增强
+- 实现 `BailianAPIClient.firstLastFrameToVideo()` 方法
+- 支持首尾帧 Base64 编码和异步任务处理
+- 完整的请求/响应日志记录
+
+#### 模板和文档更新
+- 新增 `templates/storyboard-prompt-examples.md` - 分镜脚本提示词示例库
+  - 包含视频声音生成示例（人声、音效、环境音）
+  - 包含电影美学控制示例（运镜、光线、构图）
+- 更新 `templates/AI-rules.md` - AI 规则模板
+- 更新 `templates/storyboard-guide.md` - 分镜指南
+- 更新 `templates/shot-guide.md` - 镜头指南
+- 更新 `templates/context-readme.md` - 上下文说明
+- 删除 `templates/prompt-examples.md`（已整合到新文件）
+
+#### 用户体验改进
+- 资源树视图支持显示尾帧信息
+- 右键菜单支持根据首尾帧生成视频
+- 改进的错误提示和用户引导
+- 优化批量生成的进度显示
+
+### 📊 技术细节
+
+- 新增文件：`src/commands/generateVideoFromFirstLastFrame.ts`（约 530 行）
+- 更新文件：`src/types.ts`、`src/core/StoryboardParser.ts`、`src/providers/BailianAPIClient.ts`
+- 支持 Provider：目前仅支持通义万相（TongyiWanxiangProvider）
+
+### 🎯 使用场景
+
+首尾帧生成视频功能特别适用于：
+- 需要精确控制视频开始和结束画面的场景
+- 需要实现特定转场效果的视频
+- 需要确保视频首尾画面一致性的场景
+
+---
+
 ## [Unreleased]
 
 ### ✅ Phase 2.1: 分组合成优化 (2025-11-14)

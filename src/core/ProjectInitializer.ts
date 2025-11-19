@@ -159,7 +159,7 @@ output/*.mp4
 
     // prompt-examples.md
     await writeFile(
-      path.join(contextDir, 'prompt-examples.md'),
+      path.join(contextDir, 'storyboard-prompt-examples.md'),
       await generatePromptExamples()
     );
   }

@@ -11,7 +11,7 @@ import { imageToBase64 } from '../utils/imageEncoder';
 
 export class TongyiWanxiangProvider implements VideoAIProvider {
   readonly name = '通义万相';
-  private client: BailianAPIClient;
+  public readonly client: BailianAPIClient;
 
   constructor(config: TongyiConfig) {
     this.client = new BailianAPIClient(config.apiKey, config.baseUrl);

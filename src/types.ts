@@ -16,6 +16,8 @@ export interface Storyboard {
   duration?: number;
   /** 首帧图片路径，可选 */
   firstFrame?: string;
+  /** 尾帧图片路径，可选 */
+  lastFrame?: string;
   /** 生成首帧的提示词，可选 */
   firstFramePrompt?: string;
   /** 视频提示词（用于图生视频），可选 */

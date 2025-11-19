@@ -20,7 +20,7 @@ export class ResourceTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'clip' | 'stats' | 'subject' | 'scene' | 'referenceImage' | 'script',
+    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'firstFrameMarkdown' | 'firstFrameImage' | 'clip' | 'stats' | 'subject' | 'subjectMarkdown' | 'subjectImage' | 'scene' | 'sceneMarkdown' | 'sceneImage' | 'referenceImage' | 'script',
     public readonly resourcePath?: string,
     public readonly quality?: 'excellent' | 'good' | 'fair' | 'needs-improvement',
     public readonly relatedPaths?: FirstFrameResourcePaths
@@ -34,13 +34,13 @@ export class ResourceTreeItem extends vscode.TreeItem {
       
       // 根据质量设置装饰
       if (quality === 'excellent') {
-        this.description = '优秀 🖼️';
+        this.description = '优秀';
       } else if (quality === 'good') {
-        this.description = '✓';
+        this.description = '';
       } else if (quality === 'fair') {
-        this.description = '⚠️';
+        this.description = '';
       } else if (quality === 'needs-improvement') {
-        this.description = '💡';
+        this.description = '';
       }
 
       // 设置命令：点击打开文件
@@ -59,6 +59,28 @@ export class ResourceTreeItem extends vscode.TreeItem {
           command: 'vibevideo.openFirstFrameResource',
           title: '打开首帧资源',
           arguments: [this]
+        };
+      }
+    } else if (resourceType === 'firstFrameMarkdown') {
+      this.iconPath = new vscode.ThemeIcon('markdown');
+      this.contextValue = 'firstFrameMarkdown';
+      // 首帧描述保留"合成首帧"菜单（通过 contextValue）
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开首帧描述',
+          arguments: [vscode.Uri.file(resourcePath)]
+        };
+      }
+    } else if (resourceType === 'firstFrameImage') {
+      this.iconPath = new vscode.ThemeIcon('file-media');
+      this.contextValue = 'firstFrameImage';
+      // 首帧图片点击打开图片
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开首帧图片',
+          arguments: [vscode.Uri.file(resourcePath)]
         };
       }
     } else if (resourceType === 'clip') {
@@ -85,6 +107,28 @@ export class ResourceTreeItem extends vscode.TreeItem {
           arguments: [this]
         };
       }
+    } else if (resourceType === 'subjectMarkdown') {
+      this.iconPath = new vscode.ThemeIcon('markdown');
+      this.contextValue = 'subjectMarkdown';
+      // 主体描述保留"生成主体图片"菜单（通过 contextValue）
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开主体描述',
+          arguments: [vscode.Uri.file(resourcePath)]
+        };
+      }
+    } else if (resourceType === 'subjectImage') {
+      this.iconPath = new vscode.ThemeIcon('file-media');
+      this.contextValue = 'subjectImage';
+      // 主体图片点击打开图片
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开主体图片',
+          arguments: [vscode.Uri.file(resourcePath)]
+        };
+      }
     } else if (resourceType === 'scene') {
       this.iconPath = new vscode.ThemeIcon('symbol-color');
       this.contextValue = 'scene';
@@ -94,6 +138,28 @@ export class ResourceTreeItem extends vscode.TreeItem {
           command: 'vibevideo.openSceneResource',
           title: '打开场景资源',
           arguments: [this]
+        };
+      }
+    } else if (resourceType === 'sceneMarkdown') {
+      this.iconPath = new vscode.ThemeIcon('markdown');
+      this.contextValue = 'sceneMarkdown';
+      // 场景描述保留"生成场景图片"菜单（通过 contextValue）
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开场景描述',
+          arguments: [vscode.Uri.file(resourcePath)]
+        };
+      }
+    } else if (resourceType === 'sceneImage') {
+      this.iconPath = new vscode.ThemeIcon('file-media');
+      this.contextValue = 'sceneImage';
+      // 场景图片点击打开图片
+      if (resourcePath) {
+        this.command = {
+          command: 'vscode.open',
+          title: '打开场景图片',
+          arguments: [vscode.Uri.file(resourcePath)]
         };
       }
     } else if (resourceType === 'referenceImage') {
@@ -135,9 +201,11 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
   private parser = new StoryboardParser();
   private workspaceRoot: string | undefined;
+  private fileWatchers: vscode.FileSystemWatcher[] = [];
 
   constructor(workspaceRoot: string | undefined) {
     this.workspaceRoot = workspaceRoot;
+    this.setupFileWatchers();
   }
 
   /**
@@ -145,6 +213,70 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
    */
   refresh(): void {
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * 设置文件系统监听器
+   */
+  private setupFileWatchers(): void {
+    if (!this.workspaceRoot) {
+      return;
+    }
+
+    // 需要监听的目录列表
+    const watchDirs = [
+      'storyboards',      // 分镜脚本
+      'subjects',         // 主体
+      'scenes',           // 场景
+      'ref-img',          // 参考图
+      'first-frames',     // 首帧
+      'video-clip'        // 视频片段
+    ];
+
+    // 监听各个目录的文件变化
+    watchDirs.forEach(dir => {
+      const pattern = new vscode.RelativePattern(
+        vscode.Uri.file(this.workspaceRoot!),
+        `${dir}/**`
+      );
+      
+      const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+      
+      // 监听文件创建、删除和修改
+      watcher.onDidCreate(() => {
+        this.refresh();
+      });
+      
+      watcher.onDidDelete(() => {
+        this.refresh();
+      });
+      
+      watcher.onDidChange(() => {
+        this.refresh();
+      });
+      
+      this.fileWatchers.push(watcher);
+    });
+
+    // 监听根目录下的剧本文件（.md 文件）
+    const rootPattern = new vscode.RelativePattern(
+      vscode.Uri.file(this.workspaceRoot!),
+      '*.md'
+    );
+    
+    const rootWatcher = vscode.workspace.createFileSystemWatcher(rootPattern);
+    rootWatcher.onDidCreate(() => this.refresh());
+    rootWatcher.onDidDelete(() => this.refresh());
+    rootWatcher.onDidChange(() => this.refresh());
+    this.fileWatchers.push(rootWatcher);
+  }
+
+  /**
+   * 清理文件监听器
+   */
+  dispose(): void {
+    this.fileWatchers.forEach(watcher => watcher.dispose());
+    this.fileWatchers = [];
   }
 
   /**
@@ -167,7 +299,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     if (!(await fileExists(configPath))) {
       // 创建一个可点击的初始化按钮节点
       const initButton = new ResourceTreeItem(
-        '🚀 初始化 Vibe Video 项目',
+        '初始化 Vibe Video 项目',
         vscode.TreeItemCollapsibleState.None
       );
       initButton.iconPath = new vscode.ThemeIcon('add');
@@ -208,13 +340,13 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
           firstFramesRoot.contextValue = 'firstFramesRoot';
           return firstFramesRoot;
         })(),
-        new ResourceTreeItem('📝 分镜脚本', vscode.TreeItemCollapsibleState.Expanded),
         (() => {
-          const clipsRoot = new ResourceTreeItem('🎬 视频片段', vscode.TreeItemCollapsibleState.Collapsed);
-          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部"内联按钮
-          clipsRoot.contextValue = 'clipsRoot';
-          return clipsRoot;
-        })()
+          const storyboardsRoot = new ResourceTreeItem('📝 分镜脚本', vscode.TreeItemCollapsibleState.Expanded);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"生成全部视频"内联按钮
+          storyboardsRoot.contextValue = 'storyboardsRoot';
+          return storyboardsRoot;
+        })(),
+        new ResourceTreeItem('🎬 视频片段', vscode.TreeItemCollapsibleState.Collapsed)
       ];
     }
 
@@ -325,23 +457,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
         const quality = this.parser.checkQuality(storyboard);
         
         const fileName = path.basename(file);
-        let label = fileName;
-
-        // 添加质量标记
-        if (quality.rating === 'excellent') {
-          label = `✅ ${fileName}`;
-        } else if (quality.rating === 'good') {
-          label = `${fileName}`;
-        } else if (quality.rating === 'fair') {
-          label = `⚠️ ${fileName}`;
-        } else {
-          label = `💡 ${fileName}`;
-        }
-
-        // 检查是否有首帧
-        if (storyboard.firstFrame || storyboard.firstFramePrompt) {
-          label += ' 🖼️';
-        }
+        const label = fileName;
 
         items.push(
           new ResourceTreeItem(
@@ -355,7 +471,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       } catch (error) {
         items.push(
           new ResourceTreeItem(
-            `❌ ${path.basename(file)}`,
+            path.basename(file),
             vscode.TreeItemCollapsibleState.None
           )
         );
@@ -386,16 +502,17 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     const addFile = (file: string, type: 'md' | 'png') => {
       const fileName = path.basename(file, path.extname(file));
+      const fullFileName = path.basename(file);
       const existing = resourceMap.get(fileName) || {
-        displayName: fileName
+        displayName: fullFileName
       };
       if (type === 'md') {
         existing.md = file;
-        existing.displayName = fileName; // 优先使用描述名
+        existing.displayName = fullFileName; // 优先使用描述名，保留后缀
       } else {
         existing.png = file;
         if (!existing.md) {
-          existing.displayName = fileName;
+          existing.displayName = fullFileName;
         }
       }
       resourceMap.set(fileName, existing);
@@ -421,26 +538,39 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     );
 
     for (const [, entry] of sortedEntries) {
-      const markers = [
-        entry.md ? '📝' : '',
-        entry.png ? '🖼️' : ''
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const label = markers ? `${entry.displayName} ${markers}` : entry.displayName;
-      items.push(
-        new ResourceTreeItem(
-          label,
-          vscode.TreeItemCollapsibleState.None,
-          'subject',
-          entry.md ?? entry.png, // 主要路径
-          undefined, // quality
-          {
-            markdown: entry.md,
-            image: entry.png
-          }
-        )
-      );
+      // 主体描述和主体图片分开显示为两个独立的 item
+      if (entry.md) {
+        const mdFileName = path.basename(entry.md);
+        items.push(
+          new ResourceTreeItem(
+            mdFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'subjectMarkdown',
+            entry.md,
+            undefined,
+            {
+              markdown: entry.md,
+              image: entry.png
+            }
+          )
+        );
+      }
+      if (entry.png) {
+        const pngFileName = path.basename(entry.png);
+        items.push(
+          new ResourceTreeItem(
+            pngFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'subjectImage',
+            entry.png,
+            undefined,
+            {
+              markdown: entry.md,
+              image: entry.png
+            }
+          )
+        );
+      }
     }
 
     return items;
@@ -467,16 +597,17 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     const addFile = (file: string, type: 'md' | 'png') => {
       const fileName = path.basename(file, path.extname(file));
+      const fullFileName = path.basename(file);
       const existing = resourceMap.get(fileName) || {
-        displayName: fileName
+        displayName: fullFileName
       };
       if (type === 'md') {
         existing.md = file;
-        existing.displayName = fileName; // 优先使用描述名
+        existing.displayName = fullFileName; // 优先使用描述名，保留后缀
       } else {
         existing.png = file;
         if (!existing.md) {
-          existing.displayName = fileName;
+          existing.displayName = fullFileName;
         }
       }
       resourceMap.set(fileName, existing);
@@ -502,26 +633,39 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     );
 
     for (const [, entry] of sortedEntries) {
-      const markers = [
-        entry.md ? '📝' : '',
-        entry.png ? '🖼️' : ''
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const label = markers ? `${entry.displayName} ${markers}` : entry.displayName;
-      items.push(
-        new ResourceTreeItem(
-          label,
-          vscode.TreeItemCollapsibleState.None,
-          'scene',
-          entry.md ?? entry.png, // 主要路径
-          undefined, // quality
-          {
-            markdown: entry.md,
-            image: entry.png
-          }
-        )
-      );
+      // 场景描述和场景图片分开显示为两个独立的 item
+      if (entry.md) {
+        const mdFileName = path.basename(entry.md);
+        items.push(
+          new ResourceTreeItem(
+            mdFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'sceneMarkdown',
+            entry.md,
+            undefined,
+            {
+              markdown: entry.md,
+              image: entry.png
+            }
+          )
+        );
+      }
+      if (entry.png) {
+        const pngFileName = path.basename(entry.png);
+        items.push(
+          new ResourceTreeItem(
+            pngFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'sceneImage',
+            entry.png,
+            undefined,
+            {
+              markdown: entry.md,
+              image: entry.png
+            }
+          )
+        );
+      }
     }
 
     return items;
@@ -583,18 +727,19 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     const addFile = (file: string, type: 'image' | 'markdown') => {
       const fileName = path.basename(file, path.extname(file));
+      const fullFileName = path.basename(file);
       const normalized = normalizeFirstFrameName(fileName);
       const existing = resourceMap.get(normalized) || {
-        displayName: fileName
+        displayName: fullFileName
       };
       if (type === 'image') {
         existing.image = file;
         if (!existing.markdown) {
-          existing.displayName = fileName;
+          existing.displayName = fullFileName;
         }
       } else {
         existing.markdown = file;
-        existing.displayName = fileName; // 优先使用描述名
+        existing.displayName = fullFileName; // 优先使用描述名，保留后缀
       }
       resourceMap.set(normalized, existing);
     };
@@ -617,26 +762,39 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     );
 
     for (const [, entry] of sortedEntries) {
-      const markers = [
-        entry.markdown ? '📝' : '',
-        entry.image ? '🖼️' : ''
-      ]
-        .filter(Boolean)
-        .join(' ');
-      const label = markers ? `${entry.displayName} ${markers}` : entry.displayName;
-      items.push(
-        new ResourceTreeItem(
-          label,
-          vscode.TreeItemCollapsibleState.None,
-          'firstFrameResource',
-          entry.image ?? entry.markdown,
-          undefined,
-          {
-            image: entry.image,
-            markdown: entry.markdown
-          }
-        )
-      );
+      // 首帧描述和首帧图片分开显示为两个独立的 item
+      if (entry.markdown) {
+        const mdFileName = path.basename(entry.markdown);
+        items.push(
+          new ResourceTreeItem(
+            mdFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'firstFrameMarkdown',
+            entry.markdown,
+            undefined,
+            {
+              image: entry.image,
+              markdown: entry.markdown
+            }
+          )
+        );
+      }
+      if (entry.image) {
+        const imageFileName = path.basename(entry.image);
+        items.push(
+          new ResourceTreeItem(
+            imageFileName,
+            vscode.TreeItemCollapsibleState.None,
+            'firstFrameImage',
+            entry.image,
+            undefined,
+            {
+              image: entry.image,
+              markdown: entry.markdown
+            }
+          )
+        );
+      }
     }
 
     return items;
@@ -661,7 +819,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     return files.sort().map(file => {
       const fileName = path.basename(file);
       return new ResourceTreeItem(
-        `✓ ${fileName}`,
+        fileName,
         vscode.TreeItemCollapsibleState.None,
         'clip',
         file
@@ -798,13 +956,54 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       return;
     }
 
-    // 检查目标是否是参考图节点（根节点或子节点）
-    const isReferenceImageNode = target && (
-      target.label.startsWith('📸') || 
-      target.resourceType === 'referenceImage'
-    );
-    
-    if (!isReferenceImageNode) {
+    // 如果没有目标节点，不支持拖放
+    if (!target) {
+      return;
+    }
+
+    // 确定目标目录和允许的文件类型
+    let targetDir: string | undefined;
+    let allowedExtensions: string[] = [];
+    let resourceTypeName = '';
+
+    // 根据目标节点类型确定目标目录
+    if (target.label.startsWith('📸') || target.resourceType === 'referenceImage') {
+      // 参考图
+      targetDir = path.join(this.workspaceRoot, 'ref-img');
+      allowedExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+      resourceTypeName = '参考图';
+    } else if (target.label.startsWith('📄') || target.resourceType === 'script') {
+      // 剧本
+      targetDir = this.workspaceRoot;
+      allowedExtensions = ['.md'];
+      resourceTypeName = '剧本';
+    } else if (target.label.startsWith('📝') || target.resourceType === 'storyboard') {
+      // 分镜脚本
+      targetDir = path.join(this.workspaceRoot, 'storyboards');
+      allowedExtensions = ['.md'];
+      resourceTypeName = '分镜脚本';
+    } else if (target.label.startsWith('🖼️') || target.resourceType === 'firstFrameMarkdown' || target.resourceType === 'firstFrameImage') {
+      // 首帧
+      targetDir = path.join(this.workspaceRoot, 'first-frames');
+      allowedExtensions = ['.md', '.png'];
+      resourceTypeName = '首帧';
+    } else if (target.label.startsWith('🎭') || target.resourceType === 'subjectMarkdown' || target.resourceType === 'subjectImage') {
+      // 主体
+      targetDir = path.join(this.workspaceRoot, 'subjects');
+      allowedExtensions = ['.md', '.png'];
+      resourceTypeName = '主体';
+    } else if (target.label.startsWith('🌆') || target.resourceType === 'sceneMarkdown' || target.resourceType === 'sceneImage') {
+      // 场景
+      targetDir = path.join(this.workspaceRoot, 'scenes');
+      allowedExtensions = ['.md', '.png'];
+      resourceTypeName = '场景';
+    } else if (target.label.startsWith('🎬') || target.resourceType === 'clip') {
+      // 视频片段
+      targetDir = path.join(this.workspaceRoot, 'video-clip');
+      allowedExtensions = ['.mp4'];
+      resourceTypeName = '视频片段';
+    } else {
+      // 不支持拖放到此节点
       return;
     }
 
@@ -816,7 +1015,6 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
 
     // 解析URI列表
     const uris = files.split('\n').filter(line => line.trim().length > 0);
-    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
     let successCount = 0;
     let errorCount = 0;
     
@@ -827,10 +1025,10 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
           const filePath = uri.fsPath;
           const ext = path.extname(filePath).toLowerCase();
           
-          // 检查是否是图片文件
-          if (imageExtensions.includes(ext)) {
+          // 检查文件扩展名是否允许
+          if (allowedExtensions.includes(ext)) {
             const fileName = path.basename(filePath);
-            const targetPath = path.join(this.workspaceRoot, 'ref-img', fileName);
+            const targetPath = path.join(targetDir!, fileName);
             
             // 如果文件已存在，询问是否覆盖
             if (await fileExists(targetPath)) {
@@ -849,7 +1047,7 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
             }
             
             // 确保目标目录存在
-            await ensureDir(path.join(this.workspaceRoot, 'ref-img'));
+            await ensureDir(targetDir!);
             
             // 复制文件
             await copyFile(filePath, targetPath);
@@ -866,9 +1064,9 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
     if (successCount > 0) {
       this.refresh();
       if (errorCount > 0) {
-        vscode.window.showInformationMessage(`已添加 ${successCount} 个参考图，${errorCount} 个失败`);
+        vscode.window.showInformationMessage(`已添加 ${successCount} 个${resourceTypeName}，${errorCount} 个失败`);
       } else {
-        vscode.window.showInformationMessage(`已添加 ${successCount} 个参考图`);
+        vscode.window.showInformationMessage(`已添加 ${successCount} 个${resourceTypeName}`);
       }
     }
   }

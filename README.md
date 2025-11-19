@@ -231,6 +231,7 @@ MyVideoProject/
 - **Storyboard Duration**: Each storyboard duration **can only be 5s or 10s**, other durations are not supported
 - **Subject Function**: Used to ensure consistent character appearance, subject images have pure white background
 - **Reference Images**: Specify images to reference, represented by file address URLs
+- **Last Frame Function**: Add `- **尾帧**: first-frames/xxx-last-frame.png` field in storyboard script to enable first-last frame video generation for more precise control ⭐ New
 
 ## 📋 Requirements
 
@@ -256,28 +257,31 @@ MyVideoProject/
 - `Vibe Video: Generate First Frames` - Batch generate all first frame images
 - `Vibe Video: Generate All Videos` - Batch generate all videos
 - `Vibe Video: Compose All First Frames` - Compose first frames using subjects and scenes
+- `Vibe Video: Generate All Videos From First Last Frame` - Generate all videos from first and last frames ⭐ New
 
 ### Single Generation (Right-click Menu)
 - `生成主体` (Generate Subject) - Generate single subject image
 - `生成场景` (Generate Scene) - Generate single scene image
 - `生成视频` (Generate Video) - Generate single video clip
+- `根据首尾帧生成视频` (Generate Video From First Last Frame) - Generate video from first and last frames ⭐ New
 
 ## 🚧 Development Status
 
-Current Version: **0.0.1 (Alpha)**
+Current Version: **0.0.3 (Alpha)**
 
 ### ✅ Implemented
 - Project initialization (including subjects, scenes directories)
-- Markdown storyboard parsing (supports subjects, scenes, reference images)
+- Markdown storyboard parsing (supports subjects, scenes, reference images, last frame)
 - Subject library management (generate subject images)
 - Scene library management (generate scene images)
 - First frame generation (text-to-image)
 - Video generation (image-to-video, based on first frames)
+- **First-last frame video generation** (using first frame + last frame) ⭐ New
 - Multi-image composition (subject + scene → first frame)
 - Quality checks
 - Sidebar resource view
 - **Multiple AI Provider support**:
-  - Tongyi Wanxiang API integration (default)
+  - Tongyi Wanxiang API integration (default, supports first-last frame video generation)
   - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models)
 
 ### 🚧 In Development

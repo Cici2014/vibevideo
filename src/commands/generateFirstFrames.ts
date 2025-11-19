@@ -881,35 +881,15 @@ function deriveInitialMoment(firstFrameMarkdown: string | undefined): string {
 
 /**
  * 更新分镜 Markdown，添加首帧路径
+ * 注意：已禁用自动添加首帧字段，程序不再自动修改分镜脚本
  */
 async function updateStoryboardWithFirstFrame(
   storyboard: Storyboard,
   firstFramePath: string
 ): Promise<void> {
-  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!workspaceRoot) {
-    return;
-  }
-
-  let content = await readFile(storyboard.filePath);
-  const relativePath = path.relative(workspaceRoot, firstFramePath).replace(/\\/g, '/');
-
-  // 移除旧的首帧行
-  content = content.replace(/^[*-]\s*\*?\*?首帧\*?\*?[：:].*$/im, '');
-  content = content.replace(/^[*-]\s*\*?\*?生成首帧\*?\*?[：:].*$/im, '');
-
-  // 在第一个 # 标题后插入
-  const lines = content.split('\n');
-  const titleIndex = lines.findIndex(line => line.trim().startsWith('#'));
-  
-  if (titleIndex !== -1) {
-    lines.splice(titleIndex + 1, 0, '', `- **首帧**: ${relativePath}`);
-    content = lines.join('\n');
-  } else {
-    content = `- **首帧**: ${relativePath}\n\n${content}`;
-  }
-
-  await writeFile(storyboard.filePath, content);
+  // 不再自动添加首帧字段，让用户或AI自行管理
+  // 如果需要更新首帧路径，请手动编辑分镜脚本
+  return;
 }
 
 /**

@@ -13,11 +13,12 @@ import { SceneManager } from './core/SceneManager';
 import { ResourceTreeProvider, ResourceTreeItem } from './ui/ResourceTreeProvider';
 import { ProviderManager } from './providers/ProviderManager';
 import { configureVideoAI, showCurrentConfig } from './commands/configureAPI';
-import { generateAllVideos, generateSingleVideoFromClip } from './commands/generateVideos';
+import { generateAllVideos, generateSingleVideoFromClip, generateSingleVideo } from './commands/generateVideos';
+import { generateVideoFromFirstLastFrame, generateVideoFromFirstLastFrameByStoryboard, generateAllVideosFromFirstLastFrame } from './commands/generateVideoFromFirstLastFrame';
 import { generateAllFirstFrames, generateFirstFrameForStoryboard } from './commands/generateFirstFrames';
 import { generateAllSubjects, generateSingleSubjectCommand } from './commands/generateSubjects';
 import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
-import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists } from './utils/fileSystem';
+import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
 let providerManager: ProviderManager | undefined;
@@ -104,14 +105,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('请先打开一个工作区文件夹');
         return;
       }
-      if (!item || item.resourceType !== 'subject') {
+      if (!item || (item.resourceType !== 'subject' && item.resourceType !== 'subjectMarkdown')) {
         vscode.window.showErrorMessage('请选择主体项');
         return;
       }
 
       // 从 ResourceTreeItem 中提取 subjectId
       // 优先使用 markdown 路径，如果没有则使用 resourcePath
-      const subjectPath = item.relatedPaths?.markdown || item.resourcePath;
+      const subjectPath = item.resourcePath || item.relatedPaths?.markdown;
       if (!subjectPath) {
         vscode.window.showErrorMessage('无法获取主体路径');
         return;
@@ -144,14 +145,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('请先打开一个工作区文件夹');
         return;
       }
-      if (!item || item.resourceType !== 'scene') {
+      if (!item || (item.resourceType !== 'scene' && item.resourceType !== 'sceneMarkdown')) {
         vscode.window.showErrorMessage('请选择场景项');
         return;
       }
 
       // 从 ResourceTreeItem 中提取 sceneId
-      // 优先使用 markdown 路径，如果没有则使用 resourcePath
-      const scenePath = item.relatedPaths?.markdown || item.resourcePath;
+      // 优先使用 resourcePath，如果没有则使用 relatedPaths 中的 markdown
+      const scenePath = item.resourcePath || item.relatedPaths?.markdown;
       if (!scenePath) {
         vscode.window.showErrorMessage('无法获取场景路径');
         return;
@@ -185,10 +186,11 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
       if (!item?.resourcePath) {
-        vscode.window.showErrorMessage('无法获取初始帧路径');
+        vscode.window.showErrorMessage('无法获取首帧路径');
         return;
       }
 
+      // 从首帧描述（markdown）路径推导分镜路径
       const storyboardPath = await resourceTreeProvider.getStoryboardPathFromFirstFrame(item.resourcePath);
       if (!storyboardPath) {
         vscode.window.showErrorMessage('未找到对应的分镜脚本，命名需与首帧文件一致。');
@@ -287,16 +289,131 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('请先打开一个工作区文件夹');
         return;
       }
+      
+      // 支持从分镜脚本生成视频
+      if (item && item.resourceType === 'storyboard' && item.resourcePath) {
+        const storyboardPath = item.resourcePath;
+        const parser = new StoryboardParser();
+        
+        try {
+          const storyboard = await parser.parseMarkdown(storyboardPath);
+          
+          if (!storyboard.description || storyboard.description.length < 20) {
+            vscode.window.showErrorMessage(
+              `分镜描述太短或为空。请编辑 ${storyboardPath} 添加详细描述。`
+            );
+            return;
+          }
+
+          const workspaceRoot = getWorkspaceRoot();
+          if (!workspaceRoot) {
+            vscode.window.showErrorMessage('无法获取工作区路径');
+            return;
+          }
+
+          const expectedClipPath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
+          const clipExists = await fileExists(expectedClipPath);
+
+          // 如果视频已存在，提示用户这是重新生成
+          if (clipExists) {
+            const confirm = await vscode.window.showWarningMessage(
+              `视频片段「${storyboard.title || storyboard.id}」已存在，重新生成将覆盖现有视频。是否继续？`,
+              '重新生成',
+              '取消'
+            );
+
+            if (confirm !== '重新生成') {
+              return;
+            }
+          }
+
+          await vscode.window.withProgress(
+            {
+              location: vscode.ProgressLocation.Notification,
+              title: clipExists ? `重新生成视频: ${storyboard.title || storyboard.id}` : `生成视频: ${storyboard.title || storyboard.id}`,
+              cancellable: true
+            },
+            async (progress, token) => {
+              progress.report({ message: '正在生成...' });
+              
+              try {
+                if (!providerManager) {
+                  vscode.window.showErrorMessage('ProviderManager 未初始化');
+                  return;
+                }
+                const provider = await providerManager.getProvider();
+                const configManager = providerManager.getConfigManager();
+                await generateSingleVideo(storyboard, provider, configManager, subjectManager, sceneManager, parser);
+                
+                if (!token.isCancellationRequested) {
+                  const message = clipExists 
+                    ? `✓ 视频重新生成完成: ${storyboard.title || storyboard.id}`
+                    : `✓ 视频生成完成: ${storyboard.title || storyboard.id}`;
+                  vscode.window.showInformationMessage(message);
+                } else {
+                  vscode.window.showWarningMessage('视频生成已取消');
+                }
+              } catch (error) {
+                if (!token.isCancellationRequested) {
+                  throw error;
+                } else {
+                  vscode.window.showWarningMessage('视频生成已取消');
+                }
+              }
+              
+              // 刷新资源树
+              resourceTreeProvider?.refresh();
+            }
+          );
+        } catch (error) {
+          vscode.window.showErrorMessage(`生成视频失败: ${error}`);
+        }
+        return;
+      }
+      
+      // 兼容旧的方式：从视频片段生成（保留向后兼容）
       if (!item || item.resourceType !== 'clip') {
-        vscode.window.showErrorMessage('请选择视频片段项');
+        vscode.window.showErrorMessage('请选择分镜脚本项或视频片段项');
         return;
       }
       if (!item.resourcePath) {
-        vscode.window.showErrorMessage('无法获取视频片段路径');
+        vscode.window.showErrorMessage('无法获取资源路径');
         return;
       }
 
       await generateSingleVideoFromClip(item.resourcePath, providerManager, resourceTreeProvider, subjectManager, sceneManager);
+    }
+  );
+
+  const generateVideoFromFirstLastFrameCommand = vscode.commands.registerCommand(
+    'vibevideo.generateVideoFromFirstLastFrame',
+    async (item: ResourceTreeItem) => {
+      if (!providerManager || !resourceTreeProvider) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      if (!item || item.resourceType !== 'storyboard') {
+        vscode.window.showErrorMessage('请选择分镜脚本项');
+        return;
+      }
+      if (!item.resourcePath) {
+        vscode.window.showErrorMessage('无法获取分镜脚本路径');
+        return;
+      }
+
+      // 直接使用分镜脚本路径
+      await generateVideoFromFirstLastFrameByStoryboard(item.resourcePath, providerManager, resourceTreeProvider);
+    }
+  );
+
+  const generateAllVideosFromFirstLastFrameCommand = vscode.commands.registerCommand(
+    'vibevideo.generateAllVideosFromFirstLastFrame',
+    async () => {
+      if (!providerManager || !resourceTreeProvider) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      await generateAllVideosFromFirstLastFrame(providerManager, resourceTreeProvider);
     }
   );
 
@@ -449,6 +566,196 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  const copyRelativePathCommand = vscode.commands.registerCommand(
+    'vibevideo.copyRelativePath',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要复制路径的资源项');
+        return;
+      }
+
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+
+      // 获取资源路径
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 计算相对路径
+      const relativePath = path.relative(workspaceRoot, resourcePath);
+      // 统一使用正斜杠作为路径分隔符（跨平台兼容）
+      const normalizedPath = relativePath.split(path.sep).join('/');
+
+      // 复制到剪贴板
+      await vscode.env.clipboard.writeText(normalizedPath);
+      vscode.window.showInformationMessage(`已复制相对路径: ${normalizedPath}`);
+    }
+  );
+
+  const renameResourceCommand = vscode.commands.registerCommand(
+    'vibevideo.renameResource',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要重命名的资源项');
+        return;
+      }
+
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+
+      // 获取资源路径
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 获取当前文件名和扩展名
+      const currentFileName = path.basename(resourcePath);
+      const currentExt = path.extname(currentFileName);
+      const currentNameWithoutExt = path.basename(currentFileName, currentExt);
+      const currentDir = path.dirname(resourcePath);
+
+      // 提示用户输入新文件名
+      const newFileName = await vscode.window.showInputBox({
+        prompt: '请输入新文件名',
+        value: currentFileName,
+        valueSelection: [0, currentNameWithoutExt.length],
+        validateInput: (value) => {
+          if (!value || value.trim().length === 0) {
+            return '文件名不能为空';
+          }
+          // 检查是否包含非法字符
+          const invalidChars = /[<>:"/\\|?*]/;
+          if (invalidChars.test(value)) {
+            return '文件名包含非法字符';
+          }
+          // 检查扩展名是否匹配
+          const newExt = path.extname(value);
+          if (newExt !== currentExt) {
+            return `文件扩展名必须为 ${currentExt}`;
+          }
+          return null;
+        }
+      });
+
+      if (!newFileName || newFileName === currentFileName) {
+        return; // 用户取消或没有更改
+      }
+
+      const newPath = path.join(currentDir, newFileName);
+
+      // 检查新文件名是否已存在
+      if (await fileExists(newPath)) {
+        const result = await vscode.window.showWarningMessage(
+          `文件 ${newFileName} 已存在，是否覆盖？`,
+          '覆盖',
+          '取消'
+        );
+        if (result !== '覆盖') {
+          return;
+        }
+      }
+
+      try {
+        // 重命名文件
+        await renameFile(resourcePath, newPath);
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+        
+        vscode.window.showInformationMessage(`已重命名为: ${newFileName}`);
+      } catch (error) {
+        vscode.window.showErrorMessage(`重命名失败: ${error}`);
+      }
+    }
+  );
+
+  const revealInExplorerCommand = vscode.commands.registerCommand(
+    'vibevideo.revealInExplorer',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要在资源管理器中打开的资源项');
+        return;
+      }
+
+      // 获取资源路径
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      try {
+        // 在操作系统的文件管理器中显示文件
+        const uri = vscode.Uri.file(resourcePath);
+        await vscode.commands.executeCommand('revealFileInOS', uri);
+      } catch (error) {
+        vscode.window.showErrorMessage(`在资源管理器中打开失败: ${error}`);
+      }
+    }
+  );
+
+  const deleteResourceCommand = vscode.commands.registerCommand(
+    'vibevideo.deleteResource',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要删除的资源项');
+        return;
+      }
+
+      // 获取资源路径
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 获取文件名用于显示
+      const fileName = path.basename(resourcePath);
+
+      // 确认删除
+      const confirm = await vscode.window.showWarningMessage(
+        `确定要删除「${fileName}」吗？此操作不可撤销。`,
+        '删除',
+        '取消'
+      );
+
+      if (confirm !== '删除') {
+        return;
+      }
+
+      try {
+        // 检查文件是否存在
+        if (!(await fileExists(resourcePath))) {
+          vscode.window.showWarningMessage(`文件不存在: ${fileName}`);
+          // 即使文件不存在，也刷新资源树（可能已经被外部删除）
+          resourceTreeProvider?.refresh();
+          return;
+        }
+
+        // 删除文件
+        await deleteFile(resourcePath);
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+        
+        vscode.window.showInformationMessage(`已删除: ${fileName}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`删除失败: ${error.message || error}`);
+      }
+    }
+  );
+
   // 注册所有命令和视图
   context.subscriptions.push(
     treeView,
@@ -467,11 +774,23 @@ export function activate(context: vscode.ExtensionContext) {
     generateVideosCommand,
     generateFirstFramesCommand,
     generateSingleVideoCommand,
+    generateVideoFromFirstLastFrameCommand,
+    generateAllVideosFromFirstLastFrameCommand,
     openFirstFrameResourceCommand,
     openVideoClipCommand,
     openSubjectResourceCommand,
     openSceneResourceCommand,
-    addReferenceImageCommand
+    addReferenceImageCommand,
+    copyRelativePathCommand,
+    renameResourceCommand,
+    revealInExplorerCommand,
+    deleteResourceCommand,
+    // 注册资源树提供者以便在扩展停用时清理监听器
+    {
+      dispose: () => {
+        resourceTreeProvider?.dispose();
+      }
+    }
   );
 
   // 如果已经是 VV 项目，自动刷新视图
@@ -640,4 +959,5 @@ async function showProjectStats(): Promise<void> {
  */
 export function deactivate() {
   // 清理资源
+  resourceTreeProvider?.dispose();
 }

@@ -20,6 +20,7 @@ export class StoryboardParser {
     // 提取元数据
     const duration = this.extractDuration(content);
     const firstFrame = this.extractFirstFrame(content);
+    const lastFrame = this.extractLastFrame(content);
     const firstFramePrompt = this.extractFirstFramePrompt(content);
     const referenceImages = this.extractReferenceImages(content);
     const videoPrompt = this.extractVideoPrompt(content);
@@ -37,6 +38,7 @@ export class StoryboardParser {
       description,
       duration,
       firstFrame,
+      lastFrame,
       firstFramePrompt,
       videoPrompt,
       referenceImages,
@@ -80,6 +82,26 @@ export class StoryboardParser {
       /[*-]\s*\*?\*?首帧\*?\*?[：:]\s*(.+)$/im,
       /[*-]\s*\*?\*?firstFrame\*?\*?[：:]\s*(.+)$/im,
       /\[首帧[：:]\s*(.+)\]/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = content.match(pattern);
+      if (match) {
+        return match[1].trim();
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * 提取尾帧路径
+   */
+  private extractLastFrame(content: string): string | undefined {
+    const patterns = [
+      /[*-]\s*\*?\*?尾帧\*?\*?[：:]\s*(.+)$/im,
+      /[*-]\s*\*?\*?lastFrame\*?\*?[：:]\s*(.+)$/im,
+      /\[尾帧[：:]\s*(.+)\]/i,
     ];
 
     for (const pattern of patterns) {

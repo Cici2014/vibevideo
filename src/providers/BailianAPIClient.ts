@@ -306,38 +306,29 @@ export class BailianAPIClient {
 
   /**
    * 多图合成（图片编辑）
-   * 参考：https://bailian.console.aliyun.com/?tab=api#/api/?type=model&url=2865250
+   * 使用 wan2.5-i2i-preview 模型
+   * 参考：https://help.aliyun.com/zh/dashscope/developer-reference/api-details-9
    */
   async composeMultipleImages(
-    imageBase64Array: string[],  // Base64 编码的图片数组
+    imageBase64Array: string[],  // Base64 Data URL 格式的图片数组（data:image/png;base64,...）
     prompt: string                // 合成描述
   ): Promise<string> {
-    const url = `${this.baseUrl}/multimodal-generation/generation`;
-
-    // 构建 content（多图 + 文本）
-    const content = [
-      ...imageBase64Array.map(base64 => ({ image: base64 })),
-      { text: prompt }
-    ];
+    const url = `${this.baseUrl}/image2image/image-synthesis`;
 
     const body = {
-      model: 'qwen-image-edit-plus',
+      model: 'wan2.5-i2i-preview',
       input: {
-        messages: [{
-          role: 'user',
-          content
-        }]
+        prompt: prompt,
+        images: imageBase64Array  // 直接使用 base64 data URL 数组
       },
       parameters: {
-        n: 1,
-        negative_prompt: '',
-        prompt_extend: true,
-        watermark: false
+        n: 1
       }
     };
 
     console.log('[API] 多图合成请求:', {
       url,
+      model: 'wan2.5-i2i-preview',
       imageCount: imageBase64Array.length,
       prompt: prompt.substring(0, 100)
     });
@@ -345,52 +336,100 @@ export class BailianAPIClient {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
+        'X-DashScope-Async': 'enable',  // 异步模式
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(body)
     });
 
-    const data = await response.json() as any;
+    const data = await response.json() as APIResponse;
 
     console.log('[API] 多图合成响应:', {
       status: response.status,
       ok: response.ok,
-      hasOutput: !!data.output
+      code: data.code,
+      message: data.message,
+      task_id: data.output?.task_id
     });
 
     if (!response.ok || data.code) {
       throw new Error(`多图合成失败 [${response.status}]: ${data.message || response.statusText}`);
     }
 
-    // 这个 API 可能是同步的，直接返回图片 URL
-    // 或者返回 task_id（异步）
-    // 需要根据实际响应调整
-    
-    // 1. results[].url
-    if (data.output?.results && data.output.results.length > 0) {
-      const url = data.output.results[0].url;
-      if (url) {
-        return url;
+    // wan2.5 API 使用异步模式，返回 task_id
+    if (!data.output?.task_id) {
+      throw new Error(`未返回任务 ID。响应: ${JSON.stringify(data)}`);
+    }
+
+    return data.output.task_id;
+  }
+
+  /**
+   * 首尾帧生成视频
+   * 使用 wan2.2-kf2v-flash 模型
+   * 参考：https://help.aliyun.com/zh/dashscope/developer-reference/api-details-9
+   */
+  async firstLastFrameToVideo(
+    firstFrameUrl: string,  // Base64 Data URL 格式的首帧（data:image/png;base64,...）
+    lastFrameUrl: string,   // Base64 Data URL 格式的尾帧（data:image/png;base64,...）
+    prompt: string,          // 视频描述
+    resolution: string = '720P'  // 分辨率：720P, 1080P 等
+  ): Promise<string> {
+    const url = `${this.baseUrl}/image2video/video-synthesis`;
+
+    const body = {
+      model: 'wan2.2-kf2v-flash',
+      input: {
+        first_frame_url: firstFrameUrl,
+        last_frame_url: lastFrameUrl,
+        prompt: prompt
+      },
+      parameters: {
+        resolution: resolution,
+        prompt_extend: true
       }
+    };
+
+    console.log('[API] 首尾帧生成视频请求:', {
+      url,
+      model: 'wan2.2-kf2v-flash',
+      resolution,
+      prompt: prompt.substring(0, 100),
+      firstFrameFormat: firstFrameUrl.startsWith('data:') ? 'base64' : 'url',
+      lastFrameFormat: lastFrameUrl.startsWith('data:') ? 'base64' : 'url'
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-DashScope-Async': 'enable',  // 异步模式
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json() as APIResponse;
+
+    console.log('[API] 首尾帧生成视频响应:', {
+      status: response.status,
+      ok: response.ok,
+      code: data.code,
+      message: data.message,
+      task_id: data.output?.task_id
+    });
+
+    if (!response.ok || data.code) {
+      throw new Error(`首尾帧生成视频失败 [${response.status}]: ${data.message || response.statusText}`);
     }
 
-    // 2. choices[].message.content[].image
-    const choices = data.output?.choices;
-    if (choices && choices.length > 0) {
-      const contents = choices[0]?.message?.content || [];
-      const imageEntry = contents.find((entry: any) => entry.image);
-      if (imageEntry?.image) {
-        return imageEntry.image;
-      }
+    // wan2.2 API 使用异步模式，返回 task_id
+    if (!data.output?.task_id) {
+      throw new Error(`未返回任务 ID。响应: ${JSON.stringify(data)}`);
     }
 
-    // 3. task_id（异步模式）
-    if (data.output?.task_id) {
-      return data.output.task_id;
-    }
-
-    throw new Error(`未返回结果。响应: ${JSON.stringify(data)}`);
+    return data.output.task_id;
   }
 }
 

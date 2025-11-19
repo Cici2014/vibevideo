@@ -88,3 +88,19 @@ export async function copyFile(sourcePath: string, targetPath: string): Promise<
   await fs.promises.copyFile(sourcePath, targetPath);
 }
 
+/**
+ * 重命名文件
+ */
+export async function renameFile(oldPath: string, newPath: string): Promise<void> {
+  const targetDir = path.dirname(newPath);
+  await ensureDir(targetDir);
+  await fs.promises.rename(oldPath, newPath);
+}
+
+/**
+ * 删除文件
+ */
+export async function deleteFile(filePath: string): Promise<void> {
+  await fs.promises.unlink(filePath);
+}
+

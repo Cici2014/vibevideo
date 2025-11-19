@@ -5,7 +5,7 @@
   "version": "0.0.1",
   "publisher": "fastpen",
   "engines": {
-    "vscode": "^1.106.0"
+    "vscode": "^1.99.3"
   },
   "repository": {
     "type": "git",
@@ -30,51 +30,52 @@
   "categories": [
     "Other"
   ],
+  "icon": "icon.png",
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "vibevideo.initProject",
-        "title": "Vibe Video: Initialize Project",
+        "title": "初始化项目",
         "category": "Vibe Video"
       },
       {
         "command": "vibevideo.checkStoryboards",
-        "title": "Vibe Video: Check Storyboards Quality",
+        "title": "检查分镜质量",
         "category": "Vibe Video"
       },
       {
         "command": "vibevideo.refreshResources",
-        "title": "Vibe Video: Refresh Resources",
+        "title": "刷新资源",
         "category": "Vibe Video",
         "icon": "$(refresh)"
       },
       {
         "command": "vibevideo.showStats",
-        "title": "Vibe Video: Show Project Stats",
+        "title": "显示项目统计",
         "category": "Vibe Video"
       },
       {
         "command": "vibevideo.configureAPI",
-        "title": "Vibe Video: Configure Video AI",
+        "title": "配置视频 AI",
         "category": "Vibe Video",
         "icon": "$(gear)"
       },
       {
         "command": "vibevideo.showConfig",
-        "title": "Vibe Video: Show Current Config",
+        "title": "显示当前配置",
         "category": "Vibe Video"
       },
       {
         "command": "vibevideo.generateFirstFrames",
-        "title": "Vibe Video: Generate First Frames",
+        "title": "生成所有首帧",
         "category": "Vibe Video",
         "icon": "$(file-media)"
       },
       {
         "command": "vibevideo.generateVideos",
-        "title": "Vibe Video: Generate All Videos",
+        "title": "生成所有视频",
         "category": "Vibe Video",
         "icon": "$(play)"
       },
@@ -85,8 +86,20 @@
         "icon": "$(play)"
       },
       {
+        "command": "vibevideo.generateVideoFromFirstLastFrame",
+        "title": "根据首尾帧生成视频",
+        "category": "Vibe Video",
+        "icon": "$(play-circle)"
+      },
+      {
+        "command": "vibevideo.generateAllVideosFromFirstLastFrame",
+        "title": "根据首尾帧生成所有视频",
+        "category": "Vibe Video",
+        "icon": "$(play-circle)"
+      },
+      {
         "command": "vibevideo.generateSubjects",
-        "title": "Vibe Video: Generate All Subjects",
+        "title": "生成所有主体",
         "category": "Vibe Video",
         "icon": "$(account)"
       },
@@ -98,7 +111,7 @@
       },
       {
         "command": "vibevideo.generateScenes",
-        "title": "Vibe Video: Generate All Scenes",
+        "title": "生成所有场景",
         "category": "Vibe Video",
         "icon": "$(symbol-color)"
       },
@@ -110,19 +123,19 @@
       },
       {
         "command": "vibevideo.composeFirstFrames",
-        "title": "Vibe Video: Compose All First Frames",
+        "title": "合成所有首帧",
         "category": "Vibe Video",
         "icon": "$(combine)"
       },
       {
         "command": "vibevideo.composeStoryboardFirstFrame",
-        "title": "Vibe Video: Compose First Frame",
+        "title": "合成首帧",
         "category": "Vibe Video",
         "icon": "$(file-media)"
       },
       {
         "command": "vibevideo.openFirstFrameResource",
-        "title": "Vibe Video: Open First Frame Resource",
+        "title": "打开首帧资源",
         "category": "Vibe Video"
       },
       {
@@ -130,6 +143,30 @@
         "title": "添加参考图",
         "category": "Vibe Video",
         "icon": "$(add)"
+      },
+      {
+        "command": "vibevideo.copyRelativePath",
+        "title": "复制相对路径",
+        "category": "Vibe Video",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "vibevideo.renameResource",
+        "title": "重命名",
+        "category": "Vibe Video",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vibevideo.revealInExplorer",
+        "title": "在资源管理器中打开",
+        "category": "Vibe Video",
+        "icon": "$(file-directory)"
+      },
+      {
+        "command": "vibevideo.deleteResource",
+        "title": "删除",
+        "category": "Vibe Video",
+        "icon": "$(trash)"
       }
     ],
     "viewsContainers": {
@@ -155,6 +192,11 @@
           "command": "vibevideo.refreshResources",
           "when": "view == vvResources",
           "group": "navigation"
+        },
+        {
+          "command": "vibevideo.configureAPI",
+          "when": "view == vvResources",
+          "group": "navigation"
         }
       ],
       "view/item/context": [
@@ -175,33 +217,243 @@
         },
         {
           "command": "vibevideo.generateVideos",
-          "when": "view == vvResources && viewItem == clipsRoot",
+          "when": "view == vvResources && viewItem == storyboardsRoot",
           "group": "inline"
         },
         {
+          "command": "vibevideo.generateAllVideosFromFirstLastFrame",
+          "when": "view == vvResources && viewItem == storyboardsRoot",
+          "group": "1_actions"
+        },
+        {
           "command": "vibevideo.composeStoryboardFirstFrame",
-          "when": "view == vvResources && viewItem == firstFrame",
+          "when": "view == vvResources && viewItem == firstFrameMarkdown",
           "group": "inline"
         },
         {
           "command": "vibevideo.generateSingleSubject",
-          "when": "view == vvResources && viewItem == subject",
+          "when": "view == vvResources && viewItem == subjectMarkdown",
           "group": "inline"
         },
         {
           "command": "vibevideo.generateSingleScene",
-          "when": "view == vvResources && viewItem == scene",
+          "when": "view == vvResources && viewItem == sceneMarkdown",
           "group": "inline"
         },
         {
           "command": "vibevideo.generateSingleVideo",
-          "when": "view == vvResources && viewItem == clip",
+          "when": "view == vvResources && viewItem == storyboard",
           "group": "inline"
+        },
+        {
+          "command": "vibevideo.generateVideoFromFirstLastFrame",
+          "when": "view == vvResources && viewItem == storyboard",
+          "group": "1_actions"
         },
         {
           "command": "vibevideo.addReferenceImage",
           "when": "view == vvResources && viewItem == referenceImagesRoot",
           "group": "inline"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == storyboard",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == firstFrameMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == subjectMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == sceneMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == script",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyRelativePath",
+          "when": "view == vvResources && viewItem == clip",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == storyboard",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == firstFrameMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == subjectMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == sceneMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == script",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.renameResource",
+          "when": "view == vvResources && viewItem == clip",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == storyboard",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == firstFrameMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == subjectMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == sceneMarkdown",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == script",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == clip",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == storyboard",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == firstFrameMarkdown",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == subjectMarkdown",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == sceneMarkdown",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == script",
+          "group": "2_actions"
+        },
+        {
+          "command": "vibevideo.deleteResource",
+          "when": "view == vvResources && viewItem == clip",
+          "group": "2_actions"
         }
       ]
     },
@@ -302,7 +554,7 @@
     "replicate": "^0.34.1"
   },
   "devDependencies": {
-    "@types/vscode": "^1.106.0",
+    "@types/vscode": "^1.99.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "typescript-eslint": "^8.46.3",
