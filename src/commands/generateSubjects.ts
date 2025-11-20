@@ -264,7 +264,7 @@ async function generateSingleSubject(
   } else {
     // 使用文生图 API
     taskId = await provider.textToImage(enhancedPrompt, {
-      size: '1024*1024',  // 主体图用方形，便于合成
+      size: '1280*720',  // 主体图使用16:9比例，符合视频标准
       style: 'realistic'
     });
   }
