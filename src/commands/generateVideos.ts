@@ -290,7 +290,7 @@ export async function generateSingleVideo(
 3. 保持统一的美术风格、光线方向和渲染质量
 4. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
         
         // 下载临时图片
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);

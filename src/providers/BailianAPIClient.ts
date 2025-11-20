@@ -315,7 +315,8 @@ export class BailianAPIClient {
    */
   async composeMultipleImages(
     imageBase64Array: string[],  // Base64 Data URL 格式的图片数组（data:image/png;base64,...）
-    prompt: string                // 合成描述
+    prompt: string,               // 合成描述
+    size: string = '1280*720'    // 输出图片尺寸，默认16:9比例
   ): Promise<string> {
     const url = `${this.baseUrl}/image2image/image-synthesis`;
 
@@ -326,6 +327,7 @@ export class BailianAPIClient {
         images: imageBase64Array  // 直接使用 base64 data URL 数组
       },
       parameters: {
+        size: size,  // 添加尺寸参数
         n: 3
       }
     };
@@ -334,6 +336,7 @@ export class BailianAPIClient {
       url,
       model: 'wan2.5-i2i-preview',
       imageCount: imageBase64Array.length,
+      size: size,
       prompt: prompt.substring(0, 100)
     });
 

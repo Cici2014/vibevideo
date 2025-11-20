@@ -248,7 +248,7 @@ async function generateSingleScene(
 请参考提供的图片，生成符合描述的场景图片。`;
 
     // 调用多图合成 API
-    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
     
     // 多图合成 API 可能返回 URL 或 taskId
     if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {

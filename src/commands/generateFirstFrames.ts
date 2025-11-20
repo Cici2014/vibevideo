@@ -591,7 +591,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
     
   } else if (strategy === FirstFrameStrategy.SUBJECTS) {
     // 策略1：使用主体图片合成
@@ -631,7 +631,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 主体: ${effectiveSubjectIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
     
   } else if (strategy === FirstFrameStrategy.SCENES) {
     // 策略2：使用场景图片合成
@@ -671,7 +671,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
     
   } else if (strategy === FirstFrameStrategy.REFERENCE_IMAGES) {
     // 策略2：使用参考图片合成（仅使用首帧描述中的内容）
@@ -701,7 +701,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 参考图: ${referenceImagePaths.map(p => path.relative(workspaceRoot, p)).join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
     
   } else {
     // 策略3：纯文生图（仅使用首帧描述中的提示词）
