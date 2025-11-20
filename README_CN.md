@@ -26,8 +26,8 @@ Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频
 - 支持场景库管理，复用场景资源
 - 支持图生视频（更高质量、更可控）
 - **多 AI Provider 支持**：
-  - **通义万相 API**（国内服务，中文支持优秀）
-  - **Replicate API**（支持多种视频生成模型，如 Zeroscope、AnimateDiff 等）
+  - **通义万相 API**（国内服务，中文支持优秀，生产就绪）
+  - **Replicate API**（支持多种视频生成模型，如 Zeroscope、AnimateDiff 等）⚠️ **测试阶段**
 
 ### 📊 可视化管理
 - 侧边栏展示项目资源（主体、场景、分镜、首帧、视频）
@@ -126,8 +126,8 @@ VS Code Extension
 ```
 
 **生产依赖**：
-- 通义万相 API（可选，默认）
-- Replicate API（可选，替代 Provider）
+- 通义万相 API（可选，默认，生产就绪）
+- Replicate API（可选，替代 Provider）⚠️ **测试阶段**
 
 ### 🎓 为什么这样设计？
 
@@ -179,12 +179,36 @@ Ctrl+, → 搜索 "vibevideo"
 ```
 
 **支持的 Provider：**
-- **通义万相**：输入 DashScope API Key
-- **Replicate**：输入 Replicate API Token（从 https://replicate.com/account/api-tokens 获取）
+- **通义万相**：输入 DashScope API Key（推荐，生产就绪）
+- **Replicate**：输入 Replicate API Token（从 https://replicate.com/account/api-tokens 获取）⚠️ **测试阶段**
 
 配置会自动保存到 VS Code 设置中
 
-### 5. 生成资源
+### 5. 使用的 AI 模型
+
+Vibe Video 使用以下 AI 模型完成不同的生成任务：
+
+#### 🤖 通义万相（DashScope）- 生产就绪
+
+| 任务类型 | 模型 | 说明 |
+|---------|------|------|
+| **文生图** | `wan2.5-t2i-preview` | 从文本提示词生成图片（用于主体、场景、首帧） |
+| **图生图** | `wan2.5-i2i-preview` | 多图合成（用于主体+场景合成） |
+| **文生视频** | `wan2.5-i2v-preview` | 直接从文本提示词生成视频 |
+| **图生视频** | `wan2.5-i2v-preview` | 从首帧图片生成视频 |
+| **首尾帧生视频** | `wan2.2-kf2v-flash` | 从首帧和尾帧图片生成视频（用于精确控制） |
+
+#### 🔬 Replicate - 测试阶段 ⚠️
+
+| 任务类型 | 默认模型 | 说明 |
+|---------|---------|------|
+| **文生图** | `stability-ai/sdxl` | 从文本提示词生成图片 |
+| **文生视频** | `anotherjesse/zeroscope-v2-xl` | 从文本提示词生成视频 |
+| **图生视频** | `anotherjesse/zeroscope-v2-xl` | 从首帧图片生成视频 |
+
+**注意**：Replicate 的模型可以在设置中自定义。上述列出的模型为默认值。Replicate Provider 目前处于**测试阶段**，功能可能不如通义万相完善。
+
+### 6. 生成资源
 使用侧边栏资源视图或命令：
 - **生成主体图片**：`Vibe Video: Generate All Subjects`
 - **生成场景图片**：`Vibe Video: Generate All Scenes`
@@ -280,8 +304,8 @@ MyVideoProject/
 - 质量检查
 - 侧边栏资源视图
 - **多 AI Provider 支持**：
-  - 通义万相 API 集成（默认，支持首尾帧生成视频）
-  - Replicate API 集成（支持 Zeroscope、AnimateDiff、SDXL 等多种模型）
+  - 通义万相 API 集成（默认，生产就绪，支持首尾帧生成视频）
+  - Replicate API 集成（支持 Zeroscope、AnimateDiff、SDXL 等多种模型）⚠️ **测试阶段**
 
 ### 🚧 开发中
 - 视频合成（ffmpeg 合成最终视频）

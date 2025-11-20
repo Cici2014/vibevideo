@@ -26,8 +26,8 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Scene library management for reusable scene resources
 - Image-to-video generation (higher quality, more controllable)
 - Multiple AI Provider support:
-  - **Tongyi Wanxiang API** (domestic service with excellent Chinese support)
-  - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.)
+  - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, production ready)
+  - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Testing Phase**
 
 ### 📊 Visual Management
 - Sidebar displays project resources (subjects, scenes, storyboards, first frames, videos)
@@ -126,8 +126,8 @@ Configuration Files (for AI understanding)
 ```
 
 **Production Dependencies**: 
-- Tongyi Wanxiang API (optional, default)
-- Replicate API (optional, alternative provider)
+- Tongyi Wanxiang API (optional, default, production ready)
+- Replicate API (optional, alternative provider) ⚠️ **Testing Phase**
 
 ### 🎓 Why This Design?
 
@@ -180,12 +180,36 @@ Ctrl+, → Search "vibevideo"
 ```
 
 **Supported Providers:**
-- **Tongyi Wanxiang**: Enter DashScope API Key
-- **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens)
+- **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, Production Ready)
+- **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Testing Phase**
 
 Configuration is automatically saved to VS Code settings
 
-### 5. Generate Resources
+### 5. AI Models Used
+
+Vibe Video uses the following AI models for different generation tasks:
+
+#### 🤖 Tongyi Wanxiang (DashScope) - Production Ready
+
+| Task Type | Model | Description |
+|-----------|-------|-------------|
+| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) |
+| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) |
+| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts |
+| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images |
+| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) |
+
+#### 🔬 Replicate - Testing Phase ⚠️
+
+| Task Type | Default Model | Description |
+|-----------|---------------|-------------|
+| **Text-to-Image** | `stability-ai/sdxl` | Generate images from text prompts |
+| **Text-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from text prompts |
+| **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images |
+
+**Note**: Replicate models can be customized in settings. The models listed above are defaults. Replicate provider is currently in **testing phase** and may have limited functionality compared to Tongyi Wanxiang.
+
+### 6. Generate Resources
 Use sidebar resource view or commands:
 - **Generate Subject Images**: `Vibe Video: Generate All Subjects`
 - **Generate Scene Images**: `Vibe Video: Generate All Scenes`
@@ -281,8 +305,8 @@ Current Version: **0.0.3 (Alpha)**
 - Quality checks
 - Sidebar resource view
 - **Multiple AI Provider support**:
-  - Tongyi Wanxiang API integration (default, supports first-last frame video generation)
-  - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models)
+  - Tongyi Wanxiang API integration (default, production ready, supports first-last frame video generation)
+  - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Testing Phase**
 
 ### 🚧 In Development
 - Video composition (ffmpeg composition for final video)

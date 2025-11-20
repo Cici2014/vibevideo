@@ -72,7 +72,7 @@ export class BailianAPIClient {
       },
       parameters: {
         size,
-        n: 1
+        n: 3
       }
     };
 
@@ -220,6 +220,7 @@ export class BailianAPIClient {
   async getTaskStatus(taskId: string): Promise<{
     status: 'pending' | 'processing' | 'completed' | 'failed';
     url?: string;
+    urls?: string[];  // 多个结果 URL（当 n > 1 时）
     progress?: number;
     error?: string;
   }> {
@@ -271,10 +272,12 @@ export class BailianAPIClient {
 
     // 获取结果 URL
     let url_result: string | undefined;
+    let urls_result: string[] | undefined;
     if (status === 'completed') {
-      // 文生图结果
+      // 文生图结果（可能返回多个）
       if (data.output?.results && data.output.results.length > 0) {
-        url_result = data.output.results[0].url;
+        urls_result = data.output.results.map(r => r.url);
+        url_result = urls_result[0]; // 保持向后兼容，第一个 URL
       }
       // 视频结果
       if (data.output?.video_url) {
@@ -285,6 +288,7 @@ export class BailianAPIClient {
     return {
       status,
       url: url_result,
+      urls: urls_result,
       progress: status === 'completed' ? 100 : status === 'processing' ? 50 : 0,
       error
     };
@@ -322,7 +326,7 @@ export class BailianAPIClient {
         images: imageBase64Array  // 直接使用 base64 data URL 数组
       },
       parameters: {
-        n: 1
+        n: 3
       }
     };
 

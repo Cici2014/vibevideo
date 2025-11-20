@@ -156,6 +156,16 @@ async function generateSingleVideoFromFirstLastFrame(
       return;
     }
 
+    // 验证并获取时长（分镜时长只能是5秒或10秒）
+    let duration = storyboard.duration;
+    if (!duration) {
+      console.warn(`[警告] 分镜 ${storyboard.id} 未指定时长，使用默认值5秒`);
+      duration = 5; // 默认5秒
+    } else if (duration !== 5 && duration !== 10) {
+      console.warn(`[警告] 分镜 ${storyboard.id} 的时长 ${duration}秒 不符合规范（只能是5秒或10秒），使用默认值5秒`);
+      duration = 5; // 不符合规范时使用默认值
+    }
+
     // 检查视频是否已存在
     const expectedClipPath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
     const clipExists = await fileExists(expectedClipPath);
@@ -197,6 +207,7 @@ async function generateSingleVideoFromFirstLastFrame(
       // 调用首尾帧生成视频接口
       // 从配置中获取分辨率
       const resolution = configManager.getResolution();
+      console.log(`[首尾帧生成视频] ${storyboard.id}: 时长=${duration}秒, 分辨率=${resolution}`);
       let taskId: string;
       if (lastFrameBase64) {
         // 使用首尾帧生成
@@ -212,7 +223,10 @@ async function generateSingleVideoFromFirstLastFrame(
         if (!skipConfirm) {
           vscode.window.showWarningMessage('未找到尾帧，将使用首帧进行图生视频');
         }
-        taskId = await provider.imageToVideo(firstFrameBase64, prompt, { resolution });
+        taskId = await provider.imageToVideo(firstFrameBase64, prompt, { 
+          duration: duration,
+          resolution: resolution 
+        });
       }
 
       if (token?.isCancellationRequested) {

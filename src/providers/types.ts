@@ -34,6 +34,8 @@ export interface TaskStatus {
   progress?: number;
   /** 资源 URL（图片或视频） */
   url?: string;
+  /** 多个资源 URL（当生成多个图片时） */
+  urls?: string[];
   /** 错误信息（失败时的详细原因） */
   error?: string;
 }

@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ProjectInitializer } from './core/ProjectInitializer';
 import { StoryboardParser } from './core/StoryboardParser';
 import { ConfigManager } from './core/ConfigManager';
@@ -44,6 +45,19 @@ export function activate(context: vscode.ExtensionContext) {
   }
   
   resourceTreeProvider = new ResourceTreeProvider(workspaceRoot);
+
+  // 监听配置变化，当 provider 或相关配置改变时重置 Provider 缓存
+  const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('vibevideo.provider') || 
+        e.affectsConfiguration('vibevideo.dashscope') || 
+        e.affectsConfiguration('vibevideo.replicate')) {
+      // 配置变化时重置 Provider，下次获取时会重新创建
+      providerManager?.resetProvider();
+      console.log('[Vibe Video] 配置已更新，Provider 缓存已重置');
+    }
+  });
+  
+  context.subscriptions.push(configChangeDisposable);
 
   // 注册侧边栏视图（支持拖放）
   const treeView = vscode.window.createTreeView('vvResources', {
@@ -756,6 +770,234 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // 不选中图片：添加 .o-n 后缀
+  const deselectImageCommand = vscode.commands.registerCommand(
+    'vibevideo.deselectImage',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择图片项');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是图片类型
+      if (item.resourceType !== 'firstFrameImage' && 
+          item.resourceType !== 'subjectImage' && 
+          item.resourceType !== 'sceneImage') {
+        vscode.window.showErrorMessage('只能对图片文件执行此操作');
+        return;
+      }
+
+      try {
+        const currentDir = path.dirname(resourcePath);
+        const currentFileName = path.basename(resourcePath);
+        const ext = path.extname(currentFileName);
+        const baseName = path.basename(currentFileName, ext);
+
+        // 检查文件名是否已经有 .o- 后缀
+        if (currentFileName.includes('.o-')) {
+          vscode.window.showWarningMessage('该文件已经是备选文件，无需再次标记');
+          return;
+        }
+
+        // 查找当前目录中已有的 .o-n 文件，找到最大的 n 和最小的 n
+        const files = await fs.promises.readdir(currentDir);
+        let maxN = 0;
+        let minN = Infinity;
+        // 转义 baseName 和 ext 中的特殊字符，用于正则表达式
+        const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedExt = ext.replace('.', '\\.');
+        const alternativePattern = new RegExp(`^${escapedBaseName}\\.o-(\\d+)${escapedExt}$`);
+        const alternativeFiles: Array<{ n: number; fileName: string; path: string }> = [];
+        
+        console.log(`[不选中] 当前目录: ${currentDir}`);
+        console.log(`[不选中] baseName: ${baseName}, ext: ${ext}`);
+        console.log(`[不选中] 正则表达式: ${alternativePattern}`);
+        console.log(`[不选中] 目录中的文件:`, files);
+        
+        for (const file of files) {
+          const match = file.match(alternativePattern);
+          console.log(`[不选中] 检查文件: ${file}, 匹配结果:`, match);
+          if (match) {
+            const n = parseInt(match[1], 10);
+            if (n > maxN) {
+              maxN = n;
+            }
+            if (n < minN) {
+              minN = n;
+            }
+            alternativeFiles.push({
+              n,
+              fileName: file,
+              path: path.join(currentDir, file)
+            });
+          }
+        }
+
+        // 生成新的文件名（n 自增），如果文件已存在则继续递增
+        let newN = maxN + 1;
+        let newFileName = `${baseName}.o-${newN}${ext}`;
+        let newPath = path.join(currentDir, newFileName);
+        
+        // 如果新文件名已存在，继续递增直到找到不存在的文件名
+        while (await fileExists(newPath)) {
+          newN++;
+          newFileName = `${baseName}.o-${newN}${ext}`;
+          newPath = path.join(currentDir, newFileName);
+        }
+
+        // 1. 将当前文件重命名为备选文件
+        await renameFile(resourcePath, newPath);
+        
+        // 2. 如果有备选文件，选择最小的 n（如 .o-1）提升为选中状态
+        const originalPath = path.join(currentDir, `${baseName}${ext}`);
+        
+        console.log(`[不选中] 备选文件数量: ${alternativeFiles.length}`);
+        console.log(`[不选中] 备选文件列表:`, alternativeFiles.map(f => f.fileName));
+        
+        if (alternativeFiles.length > 0) {
+          // 找到最小的 n
+          const smallestAlternative = alternativeFiles.reduce((prev, curr) => 
+            curr.n < prev.n ? curr : prev
+          );
+          
+          console.log(`[不选中] 最小的备选文件: ${smallestAlternative.fileName}, n=${smallestAlternative.n}`);
+          console.log(`[不选中] 检查原文件是否存在: ${originalPath}, 存在=${await fileExists(originalPath)}`);
+          
+          // 检查原文件名是否已存在（理论上不应该存在，因为刚被重命名）
+          if (await fileExists(originalPath)) {
+            // 如果原文件名已存在，说明有冲突，跳过提升操作
+            console.warn(`原文件名 ${baseName}${ext} 已存在，跳过提升备选文件`);
+            vscode.window.showInformationMessage(`已标记为备选: ${newFileName}`);
+          } else {
+            // 检查最小的备选文件是否存在
+            if (await fileExists(smallestAlternative.path)) {
+              // 将最小的备选文件提升为选中状态
+              await renameFile(smallestAlternative.path, originalPath);
+              vscode.window.showInformationMessage(`已标记为备选: ${newFileName}，已选中: ${smallestAlternative.fileName} -> ${baseName}${ext}`);
+            } else {
+              console.warn(`最小的备选文件不存在: ${smallestAlternative.path}`);
+              vscode.window.showWarningMessage(`备选文件 ${smallestAlternative.fileName} 不存在`);
+            }
+          }
+        } else {
+          console.log(`[不选中] 没有备选文件，跳过提升操作`);
+          vscode.window.showInformationMessage(`已标记为备选: ${newFileName}`);
+        }
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`操作失败: ${error.message || error}`);
+      }
+    }
+  );
+
+  // 选中图片：去掉 .o-n 后缀
+  const selectImageCommand = vscode.commands.registerCommand(
+    'vibevideo.selectImage',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择图片项');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是图片类型
+      if (item.resourceType !== 'firstFrameImage' && 
+          item.resourceType !== 'subjectImage' && 
+          item.resourceType !== 'sceneImage') {
+        vscode.window.showErrorMessage('只能对图片文件执行此操作');
+        return;
+      }
+
+      try {
+        const currentDir = path.dirname(resourcePath);
+        const currentFileName = path.basename(resourcePath);
+
+        // 检查文件名是否有 .o- 后缀
+        if (!currentFileName.includes('.o-')) {
+          vscode.window.showWarningMessage('该文件不是备选文件');
+          return;
+        }
+
+        // 去掉 .o-n 后缀，恢复原文件名
+        // 例如：01-opening-first-frame.o-1.png -> 01-opening-first-frame.png
+        const alternativeMatch = currentFileName.match(/^(.+)\.o-(\d+)(\.\w+)$/);
+        if (!alternativeMatch) {
+          vscode.window.showWarningMessage('无法解析文件名格式');
+          return;
+        }
+
+        const baseName = alternativeMatch[1];
+        const ext = alternativeMatch[3];
+        const originalFileName = baseName + ext;
+        const originalPath = path.join(currentDir, originalFileName);
+
+        // 查找当前目录中已有的 .o-n 文件，找到最大的 n（排除当前要选中的文件）
+        const files = await fs.promises.readdir(currentDir);
+        let maxN = 0;
+        const alternativePattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.o-(\\d+)\\${ext.replace('.', '\\.')}$`);
+        const currentFileNameOnly = path.basename(resourcePath);
+        
+        for (const file of files) {
+          // 排除当前要选中的文件（通过文件名比较）
+          if (file === currentFileNameOnly) {
+            continue;
+          }
+          
+          const match = file.match(alternativePattern);
+          if (match) {
+            const n = parseInt(match[1], 10);
+            if (n > maxN) {
+              maxN = n;
+            }
+          }
+        }
+
+        // 如果原文件名已存在，先将其重命名为备选文件（n 自增）
+        if (await fileExists(originalPath)) {
+          // 生成新的文件名（n 自增），如果文件已存在则继续递增
+          let newN = maxN + 1;
+          let originalAsAlternativePath = path.join(currentDir, `${baseName}.o-${newN}${ext}`);
+          
+          // 如果新文件名已存在，继续递增直到找到不存在的文件名
+          while (await fileExists(originalAsAlternativePath)) {
+            newN++;
+            originalAsAlternativePath = path.join(currentDir, `${baseName}.o-${newN}${ext}`);
+          }
+          
+          // 将原文件重命名为备选文件
+          await renameFile(originalPath, originalAsAlternativePath);
+        }
+
+        // 将当前备选文件重命名为原文件名（选中状态）
+        await renameFile(resourcePath, originalPath);
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+        
+        // 打开选中的图片
+        const uri = vscode.Uri.file(originalPath);
+        await vscode.commands.executeCommand('vscode.open', uri);
+        
+        vscode.window.showInformationMessage(`已选中: ${originalFileName}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`操作失败: ${error.message || error}`);
+      }
+    }
+  );
+
   // 注册所有命令和视图
   context.subscriptions.push(
     treeView,
@@ -785,6 +1027,8 @@ export function activate(context: vscode.ExtensionContext) {
     renameResourceCommand,
     revealInExplorerCommand,
     deleteResourceCommand,
+    deselectImageCommand,
+    selectImageCommand,
     // 注册资源树提供者以便在扩展停用时清理监听器
     {
       dispose: () => {

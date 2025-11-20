@@ -74,14 +74,21 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'firstFrameImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      this.contextValue = 'firstFrameImage';
-      // 首帧图片点击打开图片
+      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        if (fileName.includes('.o-')) {
+          this.contextValue = 'firstFrameImageAlternative';
+        } else {
+          this.contextValue = 'firstFrameImage';
+        }
         this.command = {
           command: 'vscode.open',
           title: '打开首帧图片',
           arguments: [vscode.Uri.file(resourcePath)]
         };
+      } else {
+        this.contextValue = 'firstFrameImage';
       }
     } else if (resourceType === 'clip') {
       this.iconPath = new vscode.ThemeIcon('play');
@@ -120,14 +127,21 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'subjectImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      this.contextValue = 'subjectImage';
-      // 主体图片点击打开图片
+      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        if (fileName.includes('.o-')) {
+          this.contextValue = 'subjectImageAlternative';
+        } else {
+          this.contextValue = 'subjectImage';
+        }
         this.command = {
           command: 'vscode.open',
           title: '打开主体图片',
           arguments: [vscode.Uri.file(resourcePath)]
         };
+      } else {
+        this.contextValue = 'subjectImage';
       }
     } else if (resourceType === 'scene') {
       this.iconPath = new vscode.ThemeIcon('symbol-color');
@@ -153,14 +167,21 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'sceneImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      this.contextValue = 'sceneImage';
-      // 场景图片点击打开图片
+      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        if (fileName.includes('.o-')) {
+          this.contextValue = 'sceneImageAlternative';
+        } else {
+          this.contextValue = 'sceneImage';
+        }
         this.command = {
           command: 'vscode.open',
           title: '打开场景图片',
           arguments: [vscode.Uri.file(resourcePath)]
         };
+      } else {
+        this.contextValue = 'sceneImage';
       }
     } else if (resourceType === 'referenceImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');

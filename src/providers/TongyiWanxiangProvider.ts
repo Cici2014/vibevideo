@@ -70,12 +70,14 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
     return {
       status: result.status,
       progress: result.progress,
-      url: result.url
+      url: result.url,
+      urls: result.urls  // 传递多个 URL
     };
   }
 
   /**
    * 下载资源（图片或视频）
+   * 如果返回多个图片，第一个使用原文件名，其余添加 .o-1, .o-2 后缀
    */
   async downloadResource(taskId: string, savePath: string): Promise<void> {
     console.log('[通义万相] 下载资源:', { taskId, savePath });
@@ -87,14 +89,29 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
       throw new Error('资源尚未生成完成');
     }
 
-    if (!status.url) {
+    // 优先使用 urls 数组（多个图片），如果没有则使用单个 url
+    const urls = status.urls && status.urls.length > 0 ? status.urls : (status.url ? [status.url] : []);
+
+    if (urls.length === 0) {
       throw new Error('未找到资源 URL');
     }
 
-    // 下载文件
-    await this.client.downloadResource(status.url, savePath);
-
+    // 下载第一个文件（使用原文件名）
+    await this.client.downloadResource(urls[0], savePath);
     console.log('[通义万相] 资源下载完成:', savePath);
+
+    // 如果有多个图片，下载其余图片并添加后缀
+    if (urls.length > 1) {
+      const dir = path.dirname(savePath);
+      const ext = path.extname(savePath);
+      const baseName = path.basename(savePath, ext);
+
+      for (let i = 1; i < urls.length; i++) {
+        const alternativePath = path.join(dir, `${baseName}.o-${i}${ext}`);
+        await this.client.downloadResource(urls[i], alternativePath);
+        console.log('[通义万相] 备选图片下载完成:', alternativePath);
+      }
+    }
   }
 
   /**

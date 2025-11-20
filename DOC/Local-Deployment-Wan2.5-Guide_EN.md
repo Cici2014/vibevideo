@@ -165,6 +165,22 @@ Base URL: http://localhost:8000/v1/services/aigc
 
 ---
 
+## 🤖 AI Models Used
+
+When using local Wan2.5 deployment, the following models are used for different generation tasks:
+
+| Task Type | Model | Description |
+|-----------|-------|-------------|
+| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) |
+| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) |
+| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts |
+| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images |
+| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) |
+
+**Note**: Ensure your local Wan2.5 service supports all these models. If a model is not available, the corresponding feature will not work.
+
+---
+
 ## 🛠️ API Path Requirements
 
 Local service needs to implement the following API endpoints:
