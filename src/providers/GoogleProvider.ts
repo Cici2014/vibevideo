@@ -541,8 +541,7 @@ export class GoogleProvider implements VideoAIProvider {
     return {
       status: status,
       progress: status === 'completed' ? 100 : status === 'processing' ? 50 : undefined,
-      url: data.response?.videoUri,
-      error: data.error?.message
+      url: data.response?.videoUri
     };
   }
 
@@ -584,8 +583,7 @@ export class GoogleProvider implements VideoAIProvider {
     return {
       status: status,
       progress: status === 'completed' ? 100 : status === 'processing' ? 50 : undefined,
-      url: data.response?.videoUri,
-      error: data.error?.message
+      url: data.response?.videoUri
     };
   }
 

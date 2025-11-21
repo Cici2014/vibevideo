@@ -196,7 +196,7 @@ export async function generateSingleVideo(
 
   // 获取图片尺寸配置和生成数量配置（用于临时合成图片，使用首帧尺寸）
   const imageSize = configManager.getFirstFrameImageSize();
-  const numOutputs = configManager.getImageNumOutputs();
+  const imageNumOutputs = configManager.getImageNumOutputs();
 
   // 判断使用哪种生成方式
   // 优先级：参考图 > 首帧图片 > 主体+场景 > 主体 > 场景 > 文生视频
@@ -293,7 +293,7 @@ export async function generateSingleVideo(
 2. 场景图片作为背景和环境参考
 3. 保持统一的美术风格、光线方向和渲染质量`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, imageNumOutputs);
         
         // 下载临时图片
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
@@ -342,7 +342,7 @@ export async function generateSingleVideo(
 2. 保持统一的美术风格、光线方向和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, imageNumOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         
         // 检查返回的是 URL 还是 task_id
@@ -389,7 +389,7 @@ export async function generateSingleVideo(
 2. 保持统一的美术风格和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, imageNumOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         
         // 检查返回的是 URL 还是 task_id

@@ -23,6 +23,9 @@ export async function editImage(
     return;
   }
 
+  // 保存 resourcePath 到局部变量，确保类型安全
+  const resourcePath = item.resourcePath;
+
   // 检查是否是图片类型
   const imageTypes = [
     'firstFrameImage',
@@ -40,8 +43,8 @@ export async function editImage(
   }
 
   // 检查文件是否存在
-  if (!(await fileExists(item.resourcePath))) {
-    vscode.window.showErrorMessage(`图片文件不存在: ${item.resourcePath}`);
+  if (!(await fileExists(resourcePath))) {
+    vscode.window.showErrorMessage(`图片文件不存在: ${resourcePath}`);
     return;
   }
 
@@ -96,7 +99,7 @@ export async function editImage(
         progress.report({ message: '正在转换图片...' });
 
         // 将图片转换为 base64
-        const imageBase64 = await imageToBase64(item.resourcePath);
+        const imageBase64 = await imageToBase64(resourcePath);
         console.log('[图像编辑] 图片已转换为 base64，大小:', imageBase64.length, '字符');
 
         progress.report({ message: '正在调用图像编辑接口...' });
@@ -112,10 +115,10 @@ export async function editImage(
         progress.report({ message: '正在下载编辑后的图片...' });
 
         // 下载编辑后的图片
-        const originalFileName = path.basename(item.resourcePath);
+        const originalFileName = path.basename(resourcePath);
         const originalExt = path.extname(originalFileName);
         const originalBaseName = path.basename(originalFileName, originalExt);
-        const originalDir = path.dirname(item.resourcePath);
+        const originalDir = path.dirname(resourcePath);
 
         // 生成新文件名（添加 -edited 后缀）
         let newFileName = `${originalBaseName}-edited${originalExt}`;
