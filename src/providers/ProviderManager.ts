@@ -6,6 +6,8 @@ import * as vscode from 'vscode';
 import { VideoAIProvider } from './types';
 import { TongyiWanxiangProvider } from './TongyiWanxiangProvider';
 import { ReplicateProvider } from './ReplicateProvider';
+import { SiliconFlowProvider } from './SiliconFlowProvider';
+import { GoogleProvider } from './GoogleProvider';
 import { ConfigManager } from '../core/ConfigManager';
 
 export class ProviderManager {
@@ -42,6 +44,18 @@ export class ProviderManager {
         throw new Error('Replicate 配置不完整');
       }
       this.currentProvider = new ReplicateProvider(replicateConfig);
+    } else if (config.provider === 'siliconflow') {
+      const siliconFlowConfig = await this.configManager.getSiliconFlowConfig();
+      if (!siliconFlowConfig) {
+        throw new Error('硅基流动配置不完整');
+      }
+      this.currentProvider = new SiliconFlowProvider(siliconFlowConfig);
+    } else if (config.provider === 'google') {
+      const googleConfig = await this.configManager.getGoogleConfig();
+      if (!googleConfig) {
+        throw new Error('Google 配置不完整');
+      }
+      this.currentProvider = new GoogleProvider(googleConfig);
     } else {
       throw new Error(`不支持的 Provider: ${config.provider}`);
     }

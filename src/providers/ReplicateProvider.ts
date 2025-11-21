@@ -79,8 +79,8 @@ export class ReplicateProvider implements VideoAIProvider {
   /**
    * 文生图（生成初始帧）
    */
-  async textToImage(prompt: string, options?: ImageOptions): Promise<string> {
-    console.log('[Replicate] 文生图请求:', { prompt, size: options?.size });
+  async textToImage(prompt: string, options?: ImageOptions, n?: number): Promise<string> {
+    console.log('[Replicate] 文生图请求:', { prompt, size: options?.size, n });
 
     try {
       const replicate = await this.getClient();
@@ -95,7 +95,7 @@ export class ReplicateProvider implements VideoAIProvider {
           prompt: prompt,
           width: width || 1280,
           height: height || 720,
-          num_outputs: 1,
+          num_outputs: n !== undefined ? n : 1,
           refine: 'expert_ensemble_refiner',
           scheduler: 'K_EULER',
           num_inference_steps: 25,
@@ -122,14 +122,21 @@ export class ReplicateProvider implements VideoAIProvider {
   /**
    * 图生视频（基于首帧）
    */
-  async imageToVideo(imagePath: string, prompt: string, options?: VideoOptions): Promise<string> {
-    console.log('[Replicate] 图生视频请求:', { imagePath, prompt });
+  async imageToVideo(imagePath: string, prompt: string, options?: VideoOptions, n?: number): Promise<string> {
+    console.log('[Replicate] 图生视频请求:', { imagePath, prompt, n });
 
     // 检查文件是否存在
     if (!fs.existsSync(imagePath)) {
       throw new Error(`图片文件不存在: ${imagePath}`);
     }
 
+    const numOutputs = n !== undefined ? n : 1;
+    
+    // 如果 n > 1，需要多次调用（Replicate 可能不支持一次生成多个视频）
+    // 目前只返回第一个任务 ID，实际实现中可能需要处理多个任务
+    // 注意：这里简化处理，只返回第一个任务的 URL
+    // 如果需要支持多个视频，应该在调用层循环调用此方法
+    
     try {
       const replicate = await this.getClient();
 
@@ -156,6 +163,7 @@ export class ReplicateProvider implements VideoAIProvider {
       }
 
       // 返回 URL（需要调用者下载）
+      // 注意：如果 n > 1，调用者需要循环调用此方法
       return videoUrl;
     } catch (error: any) {
       console.error('[Replicate] 图生视频失败:', error);
@@ -166,8 +174,15 @@ export class ReplicateProvider implements VideoAIProvider {
   /**
    * 纯文生视频（无首帧）
    */
-  async textToVideo(prompt: string, options?: VideoOptions): Promise<string> {
-    console.log('[Replicate] 文生视频请求:', { prompt, resolution: options?.resolution });
+  async textToVideo(prompt: string, options?: VideoOptions, n?: number): Promise<string> {
+    console.log('[Replicate] 文生视频请求:', { prompt, resolution: options?.resolution, n });
+
+    const numOutputs = n !== undefined ? n : 1;
+    
+    // 如果 n > 1，需要多次调用（Replicate 可能不支持一次生成多个视频）
+    // 目前只返回第一个任务 ID，实际实现中可能需要处理多个任务
+    // 注意：这里简化处理，只返回第一个任务的 URL
+    // 如果需要支持多个视频，应该在调用层循环调用此方法
 
     try {
       const replicate = await this.getClient();
@@ -191,6 +206,7 @@ export class ReplicateProvider implements VideoAIProvider {
       }
 
       // 返回 URL（需要调用者下载）
+      // 注意：如果 n > 1，调用者需要循环调用此方法
       return videoUrl;
     } catch (error: any) {
       console.error('[Replicate] 文生视频失败:', error);

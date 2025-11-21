@@ -165,19 +165,101 @@ Base URL: http://localhost:8000/v1/services/aigc
 
 ---
 
-## 🤖 AI Models Used
+## 🤖 AI Provider and Model Support
 
-When using local Wan2.5 deployment, the following models are used for different generation tasks:
+### 📊 Supported Provider List
 
-| Task Type | Model | Description |
-|-----------|-------|-------------|
-| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) |
-| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) |
-| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts |
-| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images |
-| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) |
+Vibe Video currently supports the following AI Providers:
 
-**Note**: Ensure your local Wan2.5 service supports all these models. If a model is not available, the corresponding feature will not work.
+| Provider | Status | Testing Status | Description |
+|---------|--------|----------------|-------------|
+| **Tongyi Wanxiang** | ✅ Production Ready | ✅ **Tested** | Default Provider, fully functional, recommended |
+| **SiliconFlow** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
+| **Replicate** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
+| **Google Gemini** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
+
+**Note**:
+- ✅ **Tested**: Indicates that the Provider has been tested with actual API calls and functions normally
+- ❌ **Not Tested**: Indicates that the code is implemented but has not been tested with actual APIs, may have unknown issues
+- We strongly recommend using **Tongyi Wanxiang**, which is the only fully tested Provider
+
+---
+
+### 🎯 Tongyi Wanxiang (DashScope) - Tested ✅
+
+When using Tongyi Wanxiang API, the following models are used for different generation tasks:
+
+| Task Type | Model | Description | Testing Status |
+|-----------|-------|-------------|----------------|
+| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) | ✅ Tested |
+| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) | ✅ Tested |
+| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts | ✅ Tested |
+| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images | ✅ Tested |
+| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) | ✅ Tested |
+
+**Local Deployment Configuration**: If using locally deployed Wan2.5 service, ensure your service supports all these models.
+
+---
+
+### 🔬 SiliconFlow - Not Tested ⚠️
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|----------------|
+| **Text-to-Image** | `Qwen/Qwen-Image` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `Wan-AI/Wan2.1-I2V-14B-720P` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Video** | `Wan-AI/Wan2.2-T2V-A14B` | Generate videos from text prompts | ❌ Not Tested |
+
+**Supported Models**:
+- Image Generation: `Qwen/Qwen-Image`, `Kwai-Kolors/Kolors`, etc.
+- Image-to-Video: `Wan-AI/Wan2.1-I2V-14B-720P`, `Wan-AI/Wan2.1-I2V-14B-720P-Turbo`
+- Text-to-Video: `Wan-AI/Wan2.2-T2V-A14B`, `Wan-AI/Wan2.1-T2V-14B`, `Wan-AI/Wan2.1-T2V-14B-Turbo`
+
+---
+
+### 🌐 Replicate - Not Tested ⚠️
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|----------------|
+| **Text-to-Image** | `stability-ai/sdxl` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from text prompts | ❌ Not Tested |
+
+**Note**: Replicate supports custom models, which can be configured in settings.
+
+---
+
+### 🔷 Google Gemini - Not Tested ⚠️
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|----------------|
+| **Text-to-Image** | `gemini-3-pro-image-preview` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `veo-3` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Video** | `veo-3` | Generate videos from text prompts | ❌ Not Tested |
+
+**Supported Modes**:
+- Google AI Studio (default): Uses API Key, suitable for individual developers
+- Vertex AI (optional): Requires Google Cloud project, suitable for enterprise users
+
+---
+
+## ⚠️ Testing Status Notice
+
+**Current Testing Status**:
+- ✅ **Tongyi Wanxiang**: Fully tested, all features working normally
+- ❌ **Other Providers**: Code implemented but not tested with actual APIs
+
+**Usage Recommendations**:
+1. **Production Environment**: Strongly recommend using **Tongyi Wanxiang**, the only fully tested Provider
+2. **Testing Environment**: You can try other Providers, but please note:
+   - May encounter undiscovered bugs
+   - API format may not match expectations
+   - Features may be incomplete
+   - If you find issues, please submit an Issue
+
+**Contribute Testing**: If you test other Providers and find issues, welcome to:
+- Submit Issues to report problems
+- Submit Pull Requests to fix issues
+- Share testing results and usage experience
 
 ---
 

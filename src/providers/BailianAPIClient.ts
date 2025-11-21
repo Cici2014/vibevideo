@@ -14,8 +14,16 @@ interface APIResponse {
     task_status?: string;
     results?: Array<{ url: string }>;
     video_url?: string;
+    video_urls?: string[];  // 多个视频 URL（当 n > 1 时）
     message?: string;  // 任务失败原因
     code?: string;     // 任务失败代码
+    choices?: Array<{  // qwen-image-edit-plus 响应格式
+      finish_reason?: string;
+      message?: {
+        role?: string;
+        content?: Array<{ image?: string }>;
+      };
+    }>;
   };
   request_id?: string;
   code?: string;
@@ -62,7 +70,7 @@ export class BailianAPIClient {
    * 文生图（同步/异步）
    * 参考：https://bailian.console.aliyun.com/?tab=api#/api/?type=model&url=2976416
    */
-  async textToImage(prompt: string, size: string = '1280*720'): Promise<string> {
+  async textToImage(prompt: string, size: string = '1280*720', n: number = 1): Promise<string> {
     const url = `${this.baseUrl}/text2image/image-synthesis`;
 
     const body = {
@@ -72,7 +80,7 @@ export class BailianAPIClient {
       },
       parameters: {
         size,
-        n: 3
+        n: n
       }
     };
 
@@ -112,8 +120,9 @@ export class BailianAPIClient {
   /**
    * 文生视频
    * 注意：API 不支持自定义 duration 参数
+   * @param n 生成视频数量（如果 API 不支持，将通过多次调用实现）
    */
-  async textToVideo(prompt: string, size: string = '832*480'): Promise<string> {
+  async textToVideo(prompt: string, size: string = '832*480', n: number = 1): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
 
     const body = {
@@ -124,7 +133,8 @@ export class BailianAPIClient {
       parameters: {
         size,
         prompt_extend: true,
-        audio: true  // 启用音频
+        audio: true,  // 启用音频
+        ...(n > 1 ? { n: n } : {})  // 如果 n > 1，尝试传递 n 参数（API 可能不支持）
       }
     };
 
@@ -155,8 +165,9 @@ export class BailianAPIClient {
    * 图生视频（基于首帧）
    * 支持 base64 data URL 格式（data:image/png;base64,...）
    * 注意：API 不支持自定义 duration 参数
+   * @param n 生成视频数量（如果 API 不支持，将通过多次调用实现）
    */
-  async imageToVideo(imageUrl: string, prompt: string, resolution: string = '1080P'): Promise<string> {
+  async imageToVideo(imageUrl: string, prompt: string, resolution: string = '1080P', n: number = 1): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
 
     const body = {
@@ -168,7 +179,8 @@ export class BailianAPIClient {
       parameters: {
         resolution,
         prompt_extend: true,
-        audio: true  // 启用音频
+        audio: true,  // 启用音频
+        ...(n > 1 ? { n: n } : {})  // 如果 n > 1，尝试传递 n 参数（API 可能不支持）
       }
     };
 
@@ -177,6 +189,7 @@ export class BailianAPIClient {
       model: 'wan2.5-i2v-preview',
       resolution,
       audio: true,
+      n: n,
       prompt: prompt.substring(0, 100),
       imageFormat: imageUrl.startsWith('data:') ? 'base64' : 'url',
       imageLength: imageUrl.length
@@ -279,9 +292,14 @@ export class BailianAPIClient {
         urls_result = data.output.results.map(r => r.url);
         url_result = urls_result[0]; // 保持向后兼容，第一个 URL
       }
-      // 视频结果
-      if (data.output?.video_url) {
+      // 视频结果（可能返回多个）
+      if (data.output?.video_urls && data.output.video_urls.length > 0) {
+        urls_result = data.output.video_urls;
+        url_result = urls_result[0]; // 保持向后兼容，第一个 URL
+      } else if (data.output?.video_url) {
+        // 单个视频 URL（向后兼容）
         url_result = data.output.video_url;
+        urls_result = [data.output.video_url];
       }
     }
 
@@ -310,31 +328,49 @@ export class BailianAPIClient {
 
   /**
    * 多图合成（图片编辑）
-   * 使用 wan2.5-i2i-preview 模型
+   * 使用 qwen-image-edit-plus 模型，支持 size 参数输出16:9比例
    * 参考：https://help.aliyun.com/zh/dashscope/developer-reference/api-details-9
    */
   async composeMultipleImages(
     imageBase64Array: string[],  // Base64 Data URL 格式的图片数组（data:image/png;base64,...）
     prompt: string,               // 合成描述
-    size: string = '1280*720'    // 输出图片尺寸，默认16:9比例
+    size: string = '1280*720',   // 输出图片尺寸，默认16:9比例
+    n: number = 1                 // 生成图片数量
   ): Promise<string> {
-    const url = `${this.baseUrl}/image2image/image-synthesis`;
+    const url = `${this.baseUrl}/multimodal-generation/generation`;
+
+    // 构建 content 数组：先添加所有图片，最后添加文本提示词
+    const content: Array<{ image: string } | { text: string }> = [];
+    
+    // 添加所有图片
+    for (const imageBase64 of imageBase64Array) {
+      content.push({ image: imageBase64 });
+    }
+    
+    // 最后添加文本提示词
+    content.push({ text: prompt });
 
     const body = {
-      model: 'wan2.5-i2i-preview',
+      model: 'qwen-image-edit-plus',
       input: {
-        prompt: prompt,
-        images: imageBase64Array  // 直接使用 base64 data URL 数组
+        messages: [
+          {
+            role: 'user',
+            content: content
+          }
+        ]
       },
       parameters: {
-        size: size,  // 添加尺寸参数
-        n: 3
+        n: n,  // 输出图片数量
+        size: size,  // 输出尺寸，支持16:9比例
+        prompt_extend: true,
+        watermark: false
       }
     };
 
     console.log('[API] 多图合成请求:', {
       url,
-      model: 'wan2.5-i2i-preview',
+      model: 'qwen-image-edit-plus',
       imageCount: imageBase64Array.length,
       size: size,
       prompt: prompt.substring(0, 100)
@@ -343,7 +379,6 @@ export class BailianAPIClient {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'X-DashScope-Async': 'enable',  // 异步模式
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json'
       },
@@ -357,19 +392,135 @@ export class BailianAPIClient {
       ok: response.ok,
       code: data.code,
       message: data.message,
-      task_id: data.output?.task_id
+      request_size: size,
+      has_choices: !!data.output?.choices
     });
 
+    // 检查错误
     if (!response.ok || data.code) {
-      throw new Error(`多图合成失败 [${response.status}]: ${data.message || response.statusText}`);
+      const errorMsg = data.message || response.statusText;
+      throw new Error(`多图合成失败 [${response.status}]: ${errorMsg}`);
     }
 
-    // wan2.5 API 使用异步模式，返回 task_id
-    if (!data.output?.task_id) {
-      throw new Error(`未返回任务 ID。响应: ${JSON.stringify(data)}`);
+    // qwen-image-edit-plus 是同步API，直接返回图片URL
+    if (!data.output?.choices || data.output.choices.length === 0) {
+      throw new Error(`未返回图片结果。响应: ${JSON.stringify(data)}`);
     }
 
-    return data.output.task_id;
+    const firstChoice = data.output.choices[0];
+    if (!firstChoice.message?.content || firstChoice.message.content.length === 0) {
+      throw new Error(`未返回图片URL。响应: ${JSON.stringify(data)}`);
+    }
+
+    // 取第一张图片的URL
+    const firstImage = firstChoice.message.content[0];
+    if (!firstImage.image) {
+      throw new Error(`图片URL格式错误。响应: ${JSON.stringify(data)}`);
+    }
+
+    // 返回图片URL（同步模式，直接返回URL）
+    return firstImage.image;
+  }
+
+  /**
+   * 单图编辑（图像编辑）
+   * 使用 qwen-image-edit-plus 模型，支持单图编辑和多图合成
+   * 参考：https://help.aliyun.com/zh/dashscope/developer-reference/api-details-9
+   */
+  async editImage(
+    imageBase64: string,          // Base64 Data URL 格式的图片（data:image/png;base64,...）
+    prompt: string,               // 编辑描述
+    additionalImages?: string[],   // 可选的额外参考图片（用于多图合成场景）
+    size: string = '1280*720',    // 输出图片尺寸，默认16:9比例
+    n: number = 1                 // 生成图片数量
+  ): Promise<string> {
+    const url = `${this.baseUrl}/multimodal-generation/generation`;
+
+    // 构建 content 数组：先添加所有图片，最后添加文本提示词
+    const content: Array<{ image: string } | { text: string }> = [];
+    
+    // 添加主图片
+    content.push({ image: imageBase64 });
+    
+    // 添加额外的参考图片（如果有）
+    if (additionalImages && additionalImages.length > 0) {
+      for (const imageBase64 of additionalImages) {
+        content.push({ image: imageBase64 });
+      }
+    }
+    
+    // 最后添加文本提示词
+    content.push({ text: prompt });
+
+    const body = {
+      model: 'qwen-image-edit-plus',
+      input: {
+        messages: [
+          {
+            role: 'user',
+            content: content
+          }
+        ]
+      },
+      parameters: {
+        n: n,
+        negative_prompt: ' ',
+        prompt_extend: true,
+        watermark: false
+      }
+    };
+
+    console.log('[API] 图像编辑请求:', {
+      url,
+      model: 'qwen-image-edit-plus',
+      imageCount: 1 + (additionalImages?.length || 0),
+      size: size,
+      prompt: prompt.substring(0, 100)
+    });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await response.json() as APIResponse;
+
+    console.log('[API] 图像编辑响应:', {
+      status: response.status,
+      ok: response.ok,
+      code: data.code,
+      message: data.message,
+      has_choices: !!data.output?.choices
+    });
+
+    // 检查错误
+    if (!response.ok || data.code) {
+      const errorMsg = data.message || response.statusText;
+      throw new Error(`图像编辑失败 [${response.status}]: ${errorMsg}`);
+    }
+
+    // qwen-image-edit-plus 是同步API，直接返回图片URL
+    if (!data.output?.choices || data.output.choices.length === 0) {
+      throw new Error(`未返回图片结果。响应: ${JSON.stringify(data)}`);
+    }
+
+    const firstChoice = data.output.choices[0];
+    if (!firstChoice.message?.content || firstChoice.message.content.length === 0) {
+      throw new Error(`未返回图片URL。响应: ${JSON.stringify(data)}`);
+    }
+
+    // 取第一张图片的URL
+    const firstImage = firstChoice.message.content[0];
+    if (!firstImage.image) {
+      throw new Error(`图片URL格式错误。响应: ${JSON.stringify(data)}`);
+    }
+
+    // 返回图片URL（同步模式，直接返回URL）
+    return firstImage.image;
   }
 
   /**
@@ -439,4 +590,5 @@ export class BailianAPIClient {
     return data.output.task_id;
   }
 }
+
 

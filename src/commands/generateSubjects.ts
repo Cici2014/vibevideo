@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { SubjectManager } from '../core/SubjectManager';
 import { ProviderManager } from '../providers/ProviderManager';
+import { ConfigManager } from '../core/ConfigManager';
 import { Subject } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
@@ -15,7 +16,8 @@ import { imagesToBase64 } from '../utils/imageEncoder';
  */
 export async function generateAllSubjects(
   providerManager: ProviderManager,
-  subjectManager: SubjectManager
+  subjectManager: SubjectManager,
+  configManager: ConfigManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
@@ -102,7 +104,7 @@ export async function generateAllSubjects(
                 increment: 0
               });
 
-              await generateSingleSubject(subject, provider);
+              await generateSingleSubject(subject, provider, configManager);
               successCount++;
             } catch (error) {
               // 如果是取消错误，不记录为失败
@@ -183,7 +185,8 @@ export async function generateAllSubjects(
  */
 async function generateSingleSubject(
   subject: Subject,
-  provider: any
+  provider: any,
+  configManager: ConfigManager
 ): Promise<void> {
   console.log(`[主体生成] ${subject.id}: ${subject.prompt.substring(0, 50)}...`);
 
@@ -192,6 +195,10 @@ async function generateSingleSubject(
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
+
+  // 获取图片尺寸配置和生成数量配置
+  const imageSize = configManager.getSubjectImageSize();
+  const numOutputs = configManager.getImageNumOutputs();
 
   // 增强提示词：确保只生成主体，背景纯白，无其他物品
   const enhancedPrompt = `## 任务
@@ -248,7 +255,7 @@ async function generateSingleSubject(
 请参考提供的图片，生成符合描述的主体图片。`;
 
     // 调用多图合成 API
-    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
     // 多图合成 API 可能返回 URL 或 taskId
     if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {
@@ -264,9 +271,9 @@ async function generateSingleSubject(
   } else {
     // 使用文生图 API
     taskId = await provider.textToImage(enhancedPrompt, {
-      size: '1280*720',  // 主体图使用16:9比例，符合视频标准
+      size: imageSize,
       style: 'realistic'
-    });
+    }, numOutputs);
   }
 
   console.log(`[主体] 任务创建: ${taskId}`);
@@ -314,7 +321,8 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
 export async function generateSingleSubjectCommand(
   subjectId: string,
   providerManager: ProviderManager,
-  subjectManager: SubjectManager
+  subjectManager: SubjectManager,
+  configManager: ConfigManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
@@ -353,7 +361,7 @@ export async function generateSingleSubjectCommand(
       },
       async (progress) => {
         progress.report({ message: '正在生成...' });
-        await generateSingleSubject(subject, provider);
+        await generateSingleSubject(subject, provider, configManager);
         const message = subject.exists 
           ? `✓ 主体重新生成完成: ${subject.name}`
           : `✓ 主体生成完成: ${subject.name}`;

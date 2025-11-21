@@ -194,6 +194,10 @@ export async function generateSingleVideo(
     throw new Error('无法获取工作区路径');
   }
 
+  // 获取图片尺寸配置和生成数量配置（用于临时合成图片，使用首帧尺寸）
+  const imageSize = configManager.getFirstFrameImageSize();
+  const numOutputs = configManager.getImageNumOutputs();
+
   // 判断使用哪种生成方式
   // 优先级：参考图 > 首帧图片 > 主体+场景 > 主体 > 场景 > 文生视频
   let imagePath: string | undefined;
@@ -287,10 +291,9 @@ export async function generateSingleVideo(
 ## 要求
 1. 将主体放置在场景中，保持主体的真实比例和外观特征
 2. 场景图片作为背景和环境参考
-3. 保持统一的美术风格、光线方向和渲染质量
-4. 输出尺寸为 1280x720，适合视频生成`;
+3. 保持统一的美术风格、光线方向和渲染质量`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
         
         // 下载临时图片
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
@@ -339,7 +342,7 @@ export async function generateSingleVideo(
 2. 保持统一的美术风格、光线方向和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         
         // 检查返回的是 URL 还是 task_id
@@ -386,7 +389,7 @@ export async function generateSingleVideo(
 2. 保持统一的美术风格和渲染质量
 3. 输出尺寸为 1280x720，适合视频生成`;
 
-        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt);
+        const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
         
         // 检查返回的是 URL 还是 task_id
@@ -424,47 +427,82 @@ export async function generateSingleVideo(
     throw new Error(`分镜 ${storyboard.id} 缺少视频提示词，无法生成视频`);
   }
 
-  // 从配置中获取分辨率
+  // 从配置中获取分辨率和视频生成数量
   const resolution = configManager.getResolution();
+  const numOutputs = configManager.getVideoNumOutputs();
   
-  console.log(`[视频生成] ${storyboard.id}: 时长=${duration}秒, 方式=${imagePath ? (imageSource || '图生视频') : '文生视频'}, 分辨率=${resolution}`);
+  console.log(`[视频生成] ${storyboard.id}: 时长=${duration}秒, 方式=${imagePath ? (imageSource || '图生视频') : '文生视频'}, 分辨率=${resolution}, 数量=${numOutputs}`);
   console.log(`[视频生成] ${storyboard.id}: 提示词=${videoPrompt.substring(0, 100)}...`);
 
-  if (imagePath) {
-    // 图生视频：使用配置的分辨率（480P、720P、1080P 格式）
-    taskId = await provider.imageToVideo(
-      imagePath,
-      videoPrompt,
-      { 
-        duration: duration,
-        resolution: resolution  // DashScope 图生视频用 1080P/720P/480P 格式
+  // 如果 n > 1，需要生成多个视频
+  // 由于 DashScope API 可能不支持一次返回多个视频，我们循环调用
+  const taskIds: string[] = [];
+  
+  for (let i = 0; i < numOutputs; i++) {
+    let currentTaskId: string;
+    
+    if (imagePath) {
+      // 图生视频：使用配置的分辨率（480P、720P、1080P 格式）
+      currentTaskId = await provider.imageToVideo(
+        imagePath,
+        videoPrompt,
+        { 
+          duration: duration,
+          resolution: resolution  // DashScope 图生视频用 1080P/720P/480P 格式
+        },
+        numOutputs === 1 ? undefined : 1  // 如果只生成一个，不传 n；否则每次生成一个
+      );
+    } else {
+      // 纯文生视频：将 P 格式转换为 width*height 格式
+      const size = convertResolutionToSize(resolution);
+      if (i === 0) {
+        console.log(`[文生视频] ${storyboard.id}`);
       }
-    );
-  } else {
-    // 纯文生视频：将 P 格式转换为 width*height 格式
-    const size = convertResolutionToSize(resolution);
-    console.log(`[文生视频] ${storyboard.id}`);
-    taskId = await provider.textToVideo(
-      videoPrompt,
-      { 
-        duration: duration,
-        resolution: size  // DashScope 文生视频用 width*height 格式
-      }
-    );
+      currentTaskId = await provider.textToVideo(
+        videoPrompt,
+        { 
+          duration: duration,
+          resolution: size  // DashScope 文生视频用 width*height 格式
+        },
+        numOutputs === 1 ? undefined : 1  // 如果只生成一个，不传 n；否则每次生成一个
+      );
+    }
+    
+    taskIds.push(currentTaskId);
+    
+    // 如果不是最后一个，等待一小段时间再调用下一个（避免 API 限流）
+    if (i < numOutputs - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 等待 1 秒
+    }
   }
-
-  // 轮询任务状态
-  await pollTaskStatus(provider, taskId);
 
   // 下载视频（workspaceRoot 已在上面获取）
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
 
-  const savePath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
-  await provider.downloadResource(taskId, savePath);
+  // 下载所有视频
+  for (let i = 0; i < taskIds.length; i++) {
+    const taskId = taskIds[i];
+    
+    // 轮询任务状态
+    await pollTaskStatus(provider, taskId);
+    
+    // 确定保存路径
+    let savePath: string;
+    if (i === 0) {
+      // 第一个视频使用原文件名
+      savePath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.mp4`);
+    } else {
+      // 其余视频添加后缀
+      savePath = path.join(workspaceRoot, 'video-clip', `${storyboard.id}.o-${i}.mp4`);
+    }
+    
+    await provider.downloadResource(taskId, savePath);
+    console.log(`✓ 视频 ${i + 1}/${numOutputs} 生成完成: ${path.basename(savePath)}`);
+  }
 
-  console.log(`✓ 视频生成完成: ${storyboard.id}`);
+  console.log(`✓ 所有视频生成完成: ${storyboard.id} (共 ${numOutputs} 个)`);
 }
 
 /**

@@ -54,13 +54,15 @@ export interface VideoAIProvider {
 
   /**
    * 图生视频（基于首帧）
+   * @param n 生成视频数量（可选）
    */
-  imageToVideo(imagePath: string, prompt: string, options?: VideoOptions): Promise<string>;
+  imageToVideo(imagePath: string, prompt: string, options?: VideoOptions, n?: number): Promise<string>;
 
   /**
    * 纯文生视频（无首帧）
+   * @param n 生成视频数量（可选）
    */
-  textToVideo(prompt: string, options?: VideoOptions): Promise<string>;
+  textToVideo(prompt: string, options?: VideoOptions, n?: number): Promise<string>;
 
   /**
    * 查询任务状态
@@ -78,7 +80,7 @@ export interface VideoAIProvider {
  */
 export interface ProviderConfig {
   /** Provider 类型 */
-  provider: 'tongyi-wanxiang' | 'replicate';
+  provider: 'tongyi-wanxiang' | 'replicate' | 'siliconflow' | 'google';
   /** 是否已配置 */
   configured: boolean;
 }
@@ -102,5 +104,37 @@ export interface ReplicateConfig {
   imageModel?: string;
   /** 视频生成模型（可选，默认使用 zeroscope-v2-xl） */
   videoModel?: string;
+}
+
+/**
+ * 硅基流动配置
+ */
+export interface SiliconFlowConfig {
+  /** 硅基流动 API Key（访问 https://cloud.siliconflow.cn/account/ak 获取） */
+  apiKey: string;
+  /** 自定义 API 基础 URL（可选，默认使用 https://api.siliconflow.cn/v1） */
+  baseUrl?: string;
+  /** 图像生成模型（可选，默认使用 Qwen/Qwen2.5-7B-Instruct） */
+  imageModel?: string;
+  /** 视频生成模型（可选，默认使用 Qwen/Qwen2.5-7B-Instruct） */
+  videoModel?: string;
+}
+
+/**
+ * Google 配置
+ */
+export interface GoogleConfig {
+  /** Google API Key（访问 https://makersuite.google.com/app/apikey 获取） */
+  apiKey: string;
+  /** 自定义 API 基础 URL（可选，默认使用 https://generativelanguage.googleapis.com/v1beta） */
+  baseUrl?: string;
+  /** 图像生成模型（可选，默认使用 gemini-3-pro-image-preview） */
+  imageModel?: string;
+  /** 视频生成模型（可选，默认使用 veo-3） */
+  videoModel?: string;
+  /** Vertex AI 项目 ID（可选，如果使用 Vertex AI） */
+  projectId?: string;
+  /** Vertex AI 位置（可选，默认使用 us-central1） */
+  location?: string;
 }
 

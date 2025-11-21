@@ -19,6 +19,7 @@ import { generateVideoFromFirstLastFrame, generateVideoFromFirstLastFrameByStory
 import { generateAllFirstFrames, generateFirstFrameForStoryboard } from './commands/generateFirstFrames';
 import { generateAllSubjects, generateSingleSubjectCommand } from './commands/generateSubjects';
 import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
+import { editImage } from './commands/editImage';
 import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
@@ -50,7 +51,9 @@ export function activate(context: vscode.ExtensionContext) {
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
     if (e.affectsConfiguration('vibevideo.provider') || 
         e.affectsConfiguration('vibevideo.dashscope') || 
-        e.affectsConfiguration('vibevideo.replicate')) {
+        e.affectsConfiguration('vibevideo.replicate') ||
+        e.affectsConfiguration('vibevideo.siliconflow') ||
+        e.affectsConfiguration('vibevideo.google')) {
       // 配置变化时重置 Provider，下次获取时会重新创建
       providerManager?.resetProvider();
       console.log('[Vibe Video] 配置已更新，Provider 缓存已重置');
@@ -109,7 +112,11 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
-    await generateAllSubjects(providerManager, subjectManager);
+    if (!configManager) {
+      vscode.window.showErrorMessage('配置管理器未初始化');
+      return;
+    }
+    await generateAllSubjects(providerManager, subjectManager, configManager);
   });
 
   const generateSingleSubjectCommandHandler = vscode.commands.registerCommand(
@@ -135,7 +142,11 @@ export function activate(context: vscode.ExtensionContext) {
       // 从文件路径提取 subjectId（文件名，去掉扩展名）
       const subjectId = path.basename(subjectPath, path.extname(subjectPath));
       
-      await generateSingleSubjectCommand(subjectId, providerManager, subjectManager);
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
+      await generateSingleSubjectCommand(subjectId, providerManager, subjectManager, configManager);
       
       // 刷新资源树
       resourceTreeProvider?.refresh();
@@ -149,7 +160,11 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
-    await generateAllScenes(providerManager, sceneManager);
+    if (!configManager) {
+      vscode.window.showErrorMessage('配置管理器未初始化');
+      return;
+    }
+    await generateAllScenes(providerManager, sceneManager, configManager);
   });
 
   const generateSingleSceneCommandHandler = vscode.commands.registerCommand(
@@ -175,7 +190,11 @@ export function activate(context: vscode.ExtensionContext) {
       // 从文件路径提取 sceneId（文件名，去掉扩展名）
       const sceneId = path.basename(scenePath, path.extname(scenePath));
       
-      await generateSingleSceneCommand(sceneId, providerManager, sceneManager);
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
+      await generateSingleSceneCommand(sceneId, providerManager, sceneManager, configManager);
       
       // 刷新资源树
       resourceTreeProvider?.refresh();
@@ -188,8 +207,12 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
+    if (!configManager) {
+      vscode.window.showErrorMessage('配置管理器未初始化');
+      return;
+    }
     // 使用统一的生成函数
-    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, sceneManager);
+    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, configManager, sceneManager);
   });
 
   const composeSingleFirstFrameCommand = vscode.commands.registerCommand(
@@ -211,12 +234,17 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
       // 使用统一的生成函数
       await generateFirstFrameForStoryboard(
         storyboardPath,
         providerManager,
         subjectManager,
         resourceTreeProvider,
+        configManager,
         sceneManager
       );
     }
@@ -236,7 +264,11 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.window.showErrorMessage('请先打开一个工作区文件夹');
       return;
     }
-    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, sceneManager);
+    if (!configManager) {
+      vscode.window.showErrorMessage('配置管理器未初始化');
+      return;
+    }
+    await generateAllFirstFrames(providerManager, subjectManager, resourceTreeProvider, configManager, sceneManager);
   });
 
   const openFirstFrameResourceCommand = vscode.commands.registerCommand(
@@ -273,6 +305,124 @@ export function activate(context: vscode.ExtensionContext) {
         } else {
           await vscode.commands.executeCommand('vscode.open', uri);
         }
+      }
+    }
+  );
+
+  // 复制首帧图片到下一帧
+  const copyFirstFrameToNextCommand = vscode.commands.registerCommand(
+    'vibevideo.copyFirstFrameToNext',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择首帧图片');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是首帧图片类型
+      if (item.resourceType !== 'firstFrameImage') {
+        vscode.window.showErrorMessage('只能对首帧图片执行此操作');
+        return;
+      }
+
+      try {
+        if (!resourceTreeProvider) {
+          vscode.window.showErrorMessage('ResourceTreeProvider 未初始化');
+          return;
+        }
+
+        const workspaceRoot = getWorkspaceRoot();
+        if (!workspaceRoot) {
+          vscode.window.showErrorMessage('无法获取工作区路径');
+          return;
+        }
+
+        // 从当前首帧图片路径提取分镜ID
+        const currentFileName = path.basename(resourcePath, path.extname(resourcePath));
+        // 去掉 .o-n 后缀（如果有）
+        const baseName = currentFileName.replace(/\.o-\d+$/, '');
+        // 去掉 -first-frame 后缀
+        const storyboardId = baseName.replace(/-first-frame$/i, '');
+
+        // 获取所有分镜列表
+        const storyboards = await resourceTreeProvider.getAllStoryboards();
+        if (storyboards.length === 0) {
+          vscode.window.showWarningMessage('没有找到分镜脚本');
+          return;
+        }
+
+        // 找到当前分镜的索引
+        const currentIndex = storyboards.findIndex(sb => sb.id === storyboardId);
+        if (currentIndex === -1) {
+          vscode.window.showWarningMessage(`未找到对应的分镜脚本: ${storyboardId}`);
+          return;
+        }
+
+        // 检查是否是最后一个分镜
+        if (currentIndex === storyboards.length - 1) {
+          vscode.window.showWarningMessage('这是最后一个分镜，没有下一帧');
+          return;
+        }
+
+        // 获取下一个分镜
+        const nextStoryboard = storyboards[currentIndex + 1];
+        const nextFrameFileName = `${nextStoryboard.id}-first-frame.png`;
+        const nextFramePath = path.join(workspaceRoot, 'first-frames', nextFrameFileName);
+
+        // 如果下一帧已有图片，将其重命名为 .o-n 格式
+        if (await fileExists(nextFramePath)) {
+          const nextFrameDir = path.dirname(nextFramePath);
+          const nextFrameExt = path.extname(nextFrameFileName);
+          const nextFrameBaseName = path.basename(nextFrameFileName, nextFrameExt);
+          
+          // 查找当前目录中已有的 .o-n 文件，找到最大的 n
+          const files = await fs.promises.readdir(nextFrameDir);
+          let maxN = 0;
+          const escapedBaseName = nextFrameBaseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const escapedExt = nextFrameExt.replace('.', '\\.');
+          const alternativePattern = new RegExp(`^${escapedBaseName}\\.o-(\\d+)${escapedExt}$`);
+          
+          for (const file of files) {
+            const match = file.match(alternativePattern);
+            if (match) {
+              const n = parseInt(match[1], 10);
+              if (n > maxN) {
+                maxN = n;
+              }
+            }
+          }
+
+          // 生成新的备选文件名（n 自增）
+          let newN = maxN + 1;
+          let alternativeFileName = `${nextFrameBaseName}.o-${newN}${nextFrameExt}`;
+          let alternativePath = path.join(nextFrameDir, alternativeFileName);
+          
+          // 如果新文件名已存在，继续递增直到找到不存在的文件名
+          while (await fileExists(alternativePath)) {
+            newN++;
+            alternativeFileName = `${nextFrameBaseName}.o-${newN}${nextFrameExt}`;
+            alternativePath = path.join(nextFrameDir, alternativeFileName);
+          }
+
+          // 重命名现有图片为备选文件
+          await renameFile(nextFramePath, alternativePath);
+        }
+
+        // 复制当前图片到下一帧路径
+        await copyFile(resourcePath, nextFramePath);
+
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+
+        vscode.window.showInformationMessage(`已复制到下一帧: ${nextFrameFileName}`);
+      } catch (error: any) {
+        console.error('复制到下一帧失败:', error);
+        vscode.window.showErrorMessage(`复制到下一帧失败: ${error.message || error}`);
       }
     }
   );
@@ -719,27 +869,72 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // 判断资源项是否为图片类型
+  const isImageResource = (item: ResourceTreeItem): boolean => {
+    const imageTypes = [
+      'firstFrameImage',
+      'firstFrameImageAlternative',
+      'subjectImage',
+      'subjectImageAlternative',
+      'sceneImage',
+      'sceneImageAlternative',
+      'referenceImage'
+    ];
+    return item.resourceType ? imageTypes.includes(item.resourceType) : false;
+  };
+
   const deleteResourceCommand = vscode.commands.registerCommand(
     'vibevideo.deleteResource',
-    async (item: ResourceTreeItem) => {
-      if (!item) {
+    async (items: ResourceTreeItem | ResourceTreeItem[]) => {
+      // 统一转换为数组处理
+      const itemsArray = Array.isArray(items) ? items : [items];
+      
+      if (itemsArray.length === 0) {
         vscode.window.showErrorMessage('请选择要删除的资源项');
         return;
       }
 
-      // 获取资源路径
-      const resourcePath = item.resourcePath;
-      if (!resourcePath) {
-        vscode.window.showErrorMessage('该资源项没有文件路径');
+      // 过滤出图片类型的资源（多选时只允许删除图片）
+      const imageItems = itemsArray.filter(item => {
+        if (!item || !item.resourcePath) {
+          return false;
+        }
+        // 如果多选（数组长度 > 1），只允许删除图片类型
+        if (itemsArray.length > 1) {
+          return isImageResource(item);
+        }
+        // 单选时，允许删除所有类型（保持原有行为）
+        return true;
+      });
+
+      if (imageItems.length === 0) {
+        if (itemsArray.length > 1) {
+          vscode.window.showWarningMessage('多选删除仅支持图片类型的资源');
+        } else {
+          vscode.window.showErrorMessage('该资源项没有文件路径');
+        }
         return;
       }
 
-      // 获取文件名用于显示
-      const fileName = path.basename(resourcePath);
+      // 如果多选时过滤掉了部分项，提示用户
+      if (itemsArray.length > 1 && imageItems.length < itemsArray.length) {
+        const filteredCount = itemsArray.length - imageItems.length;
+        vscode.window.showWarningMessage(
+          `已过滤掉 ${filteredCount} 个非图片资源，将删除 ${imageItems.length} 个图片文件`
+        );
+      }
+
+      // 获取所有要删除的文件名
+      const fileNames = imageItems.map(item => path.basename(item.resourcePath!));
+      const fileCount = fileNames.length;
 
       // 确认删除
+      const confirmMessage = fileCount === 1
+        ? `确定要删除「${fileNames[0]}」吗？此操作不可撤销。`
+        : `确定要删除 ${fileCount} 个图片文件吗？此操作不可撤销。\n\n${fileNames.slice(0, 5).join('\n')}${fileCount > 5 ? `\n... 还有 ${fileCount - 5} 个文件` : ''}`;
+
       const confirm = await vscode.window.showWarningMessage(
-        `确定要删除「${fileName}」吗？此操作不可撤销。`,
+        confirmMessage,
         '删除',
         '取消'
       );
@@ -748,24 +943,52 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      try {
-        // 检查文件是否存在
-        if (!(await fileExists(resourcePath))) {
-          vscode.window.showWarningMessage(`文件不存在: ${fileName}`);
-          // 即使文件不存在，也刷新资源树（可能已经被外部删除）
-          resourceTreeProvider?.refresh();
-          return;
-        }
+      let successCount = 0;
+      let failCount = 0;
+      const failedFiles: string[] = [];
 
-        // 删除文件
-        await deleteFile(resourcePath);
-        
-        // 刷新资源树
+      // 批量删除文件
+      for (const item of imageItems) {
+        const resourcePath = item.resourcePath!;
+        const fileName = path.basename(resourcePath);
+
+        try {
+          // 检查文件是否存在
+          if (!(await fileExists(resourcePath))) {
+            failCount++;
+            failedFiles.push(fileName);
+            continue;
+          }
+
+          // 删除文件
+          await deleteFile(resourcePath);
+          successCount++;
+        } catch (error: any) {
+          failCount++;
+          failedFiles.push(fileName);
+          console.error(`删除文件失败: ${fileName}`, error);
+        }
+      }
+
+      // 刷新资源树
+      if (successCount > 0) {
         resourceTreeProvider?.refresh();
-        
-        vscode.window.showInformationMessage(`已删除: ${fileName}`);
-      } catch (error: any) {
-        vscode.window.showErrorMessage(`删除失败: ${error.message || error}`);
+      }
+
+      // 显示结果消息
+      if (successCount > 0 && failCount === 0) {
+        const message = fileCount === 1
+          ? `已删除: ${fileNames[0]}`
+          : `已删除 ${successCount} 个文件`;
+        vscode.window.showInformationMessage(message);
+      } else if (successCount > 0 && failCount > 0) {
+        vscode.window.showWarningMessage(
+          `已删除 ${successCount} 个文件，${failCount} 个文件删除失败${failedFiles.length > 0 ? `: ${failedFiles.join(', ')}` : ''}`
+        );
+      } else {
+        vscode.window.showErrorMessage(
+          `删除失败${failedFiles.length > 0 ? `: ${failedFiles.join(', ')}` : ''}`
+        );
       }
     }
   );
@@ -898,7 +1121,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // 选中图片：去掉 .o-n 后缀
+  // 选中图片：去掉 .o-n 或 -edited 后缀
   const selectImageCommand = vscode.commands.registerCommand(
     'vibevideo.selectImage',
     async (item: ResourceTreeItem) => {
@@ -913,10 +1136,16 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // 检查是否是图片类型
-      if (item.resourceType !== 'firstFrameImage' && 
-          item.resourceType !== 'subjectImage' && 
-          item.resourceType !== 'sceneImage') {
+      // 检查是否是图片类型（包括备选图片和编辑后的图片）
+      const allowedTypes = [
+        'firstFrameImage',
+        'firstFrameImageAlternative',
+        'subjectImage',
+        'subjectImageAlternative',
+        'sceneImage',
+        'sceneImageAlternative'
+      ];
+      if (!item.resourceType || !allowedTypes.includes(item.resourceType)) {
         vscode.window.showErrorMessage('只能对图片文件执行此操作');
         return;
       }
@@ -925,24 +1154,33 @@ export function activate(context: vscode.ExtensionContext) {
         const currentDir = path.dirname(resourcePath);
         const currentFileName = path.basename(resourcePath);
 
-        // 检查文件名是否有 .o- 后缀
-        if (!currentFileName.includes('.o-')) {
-          vscode.window.showWarningMessage('该文件不是备选文件');
-          return;
-        }
+        let baseName: string;
+        let ext: string;
+        let originalFileName: string;
+        let originalPath: string;
 
-        // 去掉 .o-n 后缀，恢复原文件名
-        // 例如：01-opening-first-frame.o-1.png -> 01-opening-first-frame.png
+        // 检查文件名格式：支持 .o-n 和 -edited 两种格式
+        // 格式1: 文件名.o-n.扩展名 (例如: 01-opening-first-frame.o-1.png)
         const alternativeMatch = currentFileName.match(/^(.+)\.o-(\d+)(\.\w+)$/);
-        if (!alternativeMatch) {
-          vscode.window.showWarningMessage('无法解析文件名格式');
+        // 格式2: 文件名-edited.扩展名 或 文件名-edited-n.扩展名 (例如: 01-opening-first-frame-edited.png)
+        const editedMatch = currentFileName.match(/^(.+)-edited(?:-(\d+))?(\.\w+)$/);
+
+        if (alternativeMatch) {
+          // 处理 .o-n 格式
+          baseName = alternativeMatch[1];
+          ext = alternativeMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
+        } else if (editedMatch) {
+          // 处理 -edited 格式
+          baseName = editedMatch[1];
+          ext = editedMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
+        } else {
+          vscode.window.showWarningMessage('该文件不是备选文件或编辑后的文件');
           return;
         }
-
-        const baseName = alternativeMatch[1];
-        const ext = alternativeMatch[3];
-        const originalFileName = baseName + ext;
-        const originalPath = path.join(currentDir, originalFileName);
 
         // 查找当前目录中已有的 .o-n 文件，找到最大的 n（排除当前要选中的文件）
         const files = await fs.promises.readdir(currentDir);
@@ -981,7 +1219,7 @@ export function activate(context: vscode.ExtensionContext) {
           await renameFile(originalPath, originalAsAlternativePath);
         }
 
-        // 将当前备选文件重命名为原文件名（选中状态）
+        // 将当前备选文件或编辑后的文件重命名为原文件名（选中状态）
         await renameFile(resourcePath, originalPath);
         
         // 刷新资源树
@@ -995,6 +1233,18 @@ export function activate(context: vscode.ExtensionContext) {
       } catch (error: any) {
         vscode.window.showErrorMessage(`操作失败: ${error.message || error}`);
       }
+    }
+  );
+
+  // 图像编辑命令
+  const editImageCommand = vscode.commands.registerCommand(
+    'vibevideo.editImage',
+    async (item: ResourceTreeItem) => {
+      if (!providerManager) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      await editImage(item, providerManager);
     }
   );
 
@@ -1019,6 +1269,7 @@ export function activate(context: vscode.ExtensionContext) {
     generateVideoFromFirstLastFrameCommand,
     generateAllVideosFromFirstLastFrameCommand,
     openFirstFrameResourceCommand,
+    copyFirstFrameToNextCommand,
     openVideoClipCommand,
     openSubjectResourceCommand,
     openSceneResourceCommand,
@@ -1029,6 +1280,7 @@ export function activate(context: vscode.ExtensionContext) {
     deleteResourceCommand,
     deselectImageCommand,
     selectImageCommand,
+    editImageCommand,
     // 注册资源树提供者以便在扩展停用时清理监听器
     {
       dispose: () => {

@@ -74,10 +74,10 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'firstFrameImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-')) {
+        if (fileName.includes('.o-') || fileName.includes('-edited')) {
           this.contextValue = 'firstFrameImageAlternative';
         } else {
           this.contextValue = 'firstFrameImage';
@@ -127,10 +127,10 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'subjectImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-')) {
+        if (fileName.includes('.o-') || fileName.includes('-edited')) {
           this.contextValue = 'subjectImageAlternative';
         } else {
           this.contextValue = 'subjectImage';
@@ -167,10 +167,10 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'sceneImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-')) {
+        if (fileName.includes('.o-') || fileName.includes('-edited')) {
           this.contextValue = 'sceneImageAlternative';
         } else {
           this.contextValue = 'sceneImage';

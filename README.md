@@ -26,8 +26,10 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Scene library management for reusable scene resources
 - Image-to-video generation (higher quality, more controllable)
 - Multiple AI Provider support:
-  - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, production ready)
-  - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Testing Phase**
+  - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, ✅ **Tested**, production ready)
+  - **SiliconFlow API** (supports Qwen, Wan-AI models) ⚠️ **Not Tested**
+  - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Not Tested**
+  - **Google Gemini API** (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
 ### 📊 Visual Management
 - Sidebar displays project resources (subjects, scenes, storyboards, first frames, videos)
@@ -126,8 +128,10 @@ Configuration Files (for AI understanding)
 ```
 
 **Production Dependencies**: 
-- Tongyi Wanxiang API (optional, default, production ready)
-- Replicate API (optional, alternative provider) ⚠️ **Testing Phase**
+- Tongyi Wanxiang API (optional, default, ✅ **Tested**, production ready)
+- SiliconFlow API (optional, ⚠️ **Not Tested**)
+- Replicate API (optional, ⚠️ **Not Tested**)
+- Google Gemini API (optional, ⚠️ **Not Tested**)
 
 ### 🎓 Why This Design?
 
@@ -175,13 +179,19 @@ Ctrl+Shift+P → "Vibe Video: Configure Video AI"
 **Method 2**: Open Settings Directly (Recommended)
 ```
 Ctrl+, → Search "vibevideo"
-→ Select Provider (Tongyi Wanxiang or Replicate)
+→ Select Provider (Tongyi Wanxiang, SiliconFlow, Replicate, or Google Gemini)
 → Enter API Key/Token
 ```
 
 **Supported Providers:**
-- **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, Production Ready)
-- **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Testing Phase**
+- **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, ✅ **Tested**, Production Ready)
+- **SiliconFlow**: Enter SiliconFlow API Key (⚠️ **Not Tested**)
+- **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Not Tested**
+- **Google Gemini**: Enter Google API Key (⚠️ **Not Tested**)
+
+**⚠️ Testing Status Notice**:
+- ✅ **Tested**: Tongyi Wanxiang has been fully tested, all features working normally, **strongly recommended for production**
+- ❌ **Not Tested**: Other Providers are implemented but not tested with actual APIs
 
 Configuration is automatically saved to VS Code settings
 
@@ -189,25 +199,50 @@ Configuration is automatically saved to VS Code settings
 
 Vibe Video uses the following AI models for different generation tasks:
 
-#### 🤖 Tongyi Wanxiang (DashScope) - Production Ready
+#### 🤖 Tongyi Wanxiang (DashScope) - ✅ Tested, Production Ready
 
-| Task Type | Model | Description |
-|-----------|-------|-------------|
-| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) |
-| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) |
-| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts |
-| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images |
-| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) |
+| Task Type | Model | Description | Testing Status |
+|-----------|-------|-------------|---------------|
+| **Text-to-Image** | `wan2.5-t2i-preview` | Generate images from text prompts (for subjects, scenes, first frames) | ✅ Tested |
+| **Image-to-Image** | `wan2.5-i2i-preview` | Compose multiple images (for combining subjects + scenes) | ✅ Tested |
+| **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts | ✅ Tested |
+| **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images | ✅ Tested |
+| **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) | ✅ Tested |
 
-#### 🔬 Replicate - Testing Phase ⚠️
+#### 🔬 SiliconFlow - ⚠️ Not Tested
 
-| Task Type | Default Model | Description |
-|-----------|---------------|-------------|
-| **Text-to-Image** | `stability-ai/sdxl` | Generate images from text prompts |
-| **Text-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from text prompts |
-| **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images |
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|---------------|
+| **Text-to-Image** | `Qwen/Qwen-Image` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `Wan-AI/Wan2.1-I2V-14B-720P` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Video** | `Wan-AI/Wan2.2-T2V-A14B` | Generate videos from text prompts | ❌ Not Tested |
 
-**Note**: Replicate models can be customized in settings. The models listed above are defaults. Replicate provider is currently in **testing phase** and may have limited functionality compared to Tongyi Wanxiang.
+#### 🌐 Replicate - ⚠️ Not Tested
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|---------------|
+| **Text-to-Image** | `stability-ai/sdxl` | Generate images from text prompts | ❌ Not Tested |
+| **Text-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images | ❌ Not Tested |
+
+#### 🔷 Google Gemini - ⚠️ Not Tested
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|---------------|
+| **Text-to-Image** | `gemini-3-pro-image-preview` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `veo-3` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Video** | `veo-3` | Generate videos from text prompts | ❌ Not Tested |
+
+**⚠️ Testing Status Notice**:
+
+- ✅ **Tongyi Wanxiang**: Fully tested, all features working normally, **strongly recommended for production environment**
+- ❌ **Other Providers**: Code implemented but not tested with actual APIs
+  - May encounter undiscovered bugs
+  - API format may not match expectations
+  - Features may be incomplete
+  - If you find issues, please submit an Issue
+
+**Note**: Replicate, SiliconFlow, and Google Gemini models can be customized in settings. The models listed above are defaults.
 
 ### 6. Generate Resources
 Use sidebar resource view or commands:
@@ -305,8 +340,10 @@ Current Version: **0.0.3 (Alpha)**
 - Quality checks
 - Sidebar resource view
 - **Multiple AI Provider support**:
-  - Tongyi Wanxiang API integration (default, production ready, supports first-last frame video generation)
-  - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Testing Phase**
+  - Tongyi Wanxiang API integration (default, ✅ **Tested**, production ready, supports first-last frame video generation)
+  - SiliconFlow API integration (supports Qwen, Wan-AI models) ⚠️ **Not Tested**
+  - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Not Tested**
+  - Google Gemini API integration (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
 ### 🚧 In Development
 - Video composition (ffmpeg composition for final video)
@@ -338,6 +375,7 @@ For questions or suggestions, please contact:
 
 - 📧 Email: cici_yiyi@qq.com
 - 💬 WeChat: Scan QR code to add (QR code image)
+- 👥 QQ Group: 454222772
 
 ![WeChat QR Code](wechat-qrcode.png)
 

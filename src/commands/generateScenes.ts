@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { SceneManager } from '../core/SceneManager';
 import { ProviderManager } from '../providers/ProviderManager';
+import { ConfigManager } from '../core/ConfigManager';
 import { Scene } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
@@ -15,7 +16,8 @@ import { imagesToBase64 } from '../utils/imageEncoder';
  */
 export async function generateAllScenes(
   providerManager: ProviderManager,
-  sceneManager: SceneManager
+  sceneManager: SceneManager,
+  configManager: ConfigManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
@@ -102,7 +104,7 @@ export async function generateAllScenes(
                 increment: 0
               });
 
-              await generateSingleScene(scene, provider);
+              await generateSingleScene(scene, provider, configManager);
               successCount++;
             } catch (error) {
               // 如果是取消错误，不记录为失败
@@ -183,7 +185,8 @@ export async function generateAllScenes(
  */
 async function generateSingleScene(
   scene: Scene,
-  provider: any
+  provider: any,
+  configManager: ConfigManager
 ): Promise<void> {
   console.log(`[场景生成] ${scene.id}: ${scene.prompt.substring(0, 50)}...`);
 
@@ -192,6 +195,10 @@ async function generateSingleScene(
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
+
+  // 获取图片尺寸配置和生成数量配置
+  const imageSize = configManager.getSceneImageSize();
+  const numOutputs = configManager.getImageNumOutputs();
 
   // 增强提示词：生成场景图片
   const enhancedPrompt = `## 任务
@@ -204,8 +211,7 @@ async function generateSingleScene(
 ### 必须遵守
 1. 生成完整的场景画面，包含背景、环境、氛围
 2. 画面中禁止出现任何文字、字幕、Logo 或水印
-3. 输出尺寸为 1280x720，适合视频场景
-4. 保持统一的美术风格和渲染质量`;
+3. 保持统一的美术风格和渲染质量`;
 
   let taskId: string;
 
@@ -248,7 +254,7 @@ async function generateSingleScene(
 请参考提供的图片，生成符合描述的场景图片。`;
 
     // 调用多图合成 API
-    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
     // 多图合成 API 可能返回 URL 或 taskId
     if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {
@@ -264,9 +270,9 @@ async function generateSingleScene(
   } else {
     // 使用文生图 API
     taskId = await provider.textToImage(enhancedPrompt, {
-      size: '1280*720',  // 场景图用视频尺寸
+      size: imageSize,
       style: 'realistic'
-    });
+    }, numOutputs);
   }
 
   console.log(`[场景] 任务创建: ${taskId}`);
@@ -314,7 +320,8 @@ async function pollTaskStatus(provider: any, taskId: string): Promise<void> {
 export async function generateSingleSceneCommand(
   sceneId: string,
   providerManager: ProviderManager,
-  sceneManager: SceneManager
+  sceneManager: SceneManager,
+  configManager: ConfigManager
 ): Promise<void> {
   try {
     const provider = await providerManager.getProvider();
@@ -353,7 +360,7 @@ export async function generateSingleSceneCommand(
       },
       async (progress) => {
         progress.report({ message: '正在生成...' });
-        await generateSingleScene(scene, provider);
+        await generateSingleScene(scene, provider, configManager);
         const message = scene.exists 
           ? `✓ 场景重新生成完成: ${scene.name}`
           : `✓ 场景生成完成: ${scene.name}`;

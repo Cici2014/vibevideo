@@ -11,6 +11,7 @@ import { SubjectManager } from '../core/SubjectManager';
 import { SceneManager } from '../core/SceneManager';
 import { StoryboardParser } from '../core/StoryboardParser';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
+import { ConfigManager } from '../core/ConfigManager';
 import { Storyboard } from '../types';
 import { writeFile, readFile, fileExists, listFiles } from '../utils/fileSystem';
 import { imagesToBase64 } from '../utils/imageEncoder';
@@ -33,6 +34,7 @@ export async function generateAllFirstFrames(
   providerManager: ProviderManager,
   subjectManager: SubjectManager,
   treeProvider: ResourceTreeProvider,
+  configManager: ConfigManager,
   sceneManager?: SceneManager
 ): Promise<void> {
   try {
@@ -264,7 +266,7 @@ export async function generateAllFirstFrames(
             });
 
             try {
-              await generateSingleFirstFrame(sb, provider, subjectManager, parser, strategy, item.subjects, sceneManager, item.scenes);
+              await generateSingleFirstFrame(sb, provider, subjectManager, parser, strategy, configManager, item.subjects, sceneManager, item.scenes);
               successCount++;
             } catch (error) {
               // 如果是取消错误，不记录为失败
@@ -330,6 +332,7 @@ export async function generateFirstFrameForStoryboard(
   providerManager: ProviderManager,
   subjectManager: SubjectManager,
   treeProvider: ResourceTreeProvider,
+  configManager: ConfigManager,
   sceneManager?: SceneManager
 ): Promise<void> {
   try {
@@ -482,7 +485,7 @@ export async function generateFirstFrameForStoryboard(
         progress.report({ message: '正在生成...' });
         
         try {
-          await generateSingleFirstFrame(storyboard, provider, subjectManager, parser, strategy, effectiveSubjects, sceneManager, effectiveScenes);
+          await generateSingleFirstFrame(storyboard, provider, subjectManager, parser, strategy, configManager, effectiveSubjects, sceneManager, effectiveScenes);
           
           if (!token.isCancellationRequested) {
             const message = exists 
@@ -518,6 +521,7 @@ async function generateSingleFirstFrame(
   subjectManager: SubjectManager,
   parser: StoryboardParser,
   strategy: FirstFrameStrategy,
+  configManager: ConfigManager,
   subjects?: string[],
   sceneManager?: SceneManager,
   scenes?: string[]
@@ -526,6 +530,10 @@ async function generateSingleFirstFrame(
   if (!workspaceRoot) {
     throw new Error('无法获取工作区路径');
   }
+
+  // 获取图片尺寸配置和生成数量配置
+  const imageSize = configManager.getFirstFrameImageSize();
+  const numOutputs = configManager.getImageNumOutputs();
 
   // 加载首帧描述Markdown
   const firstFrameMarkdown = await loadFirstFrameMarkdown(storyboard.id, workspaceRoot);
@@ -591,7 +599,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
   } else if (strategy === FirstFrameStrategy.SUBJECTS) {
     // 策略1：使用主体图片合成
@@ -631,7 +639,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 主体: ${effectiveSubjectIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
   } else if (strategy === FirstFrameStrategy.SCENES) {
     // 策略2：使用场景图片合成
@@ -671,7 +679,7 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 场景: ${effectiveSceneIds.join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
   } else if (strategy === FirstFrameStrategy.REFERENCE_IMAGES) {
     // 策略2：使用参考图片合成（仅使用首帧描述中的内容）
@@ -694,14 +702,13 @@ async function generateSingleFirstFrame(
     const imageBase64Array = await imagesToBase64(referenceImagePaths);
     imageSourceType = `${referenceImagePaths.length} 张参考图片`;
 
-    const initialMoment = deriveInitialMoment(firstFrameMarkdown?.content);
-
-    const composePrompt = buildComposePromptWithReferenceImage(prompt, initialMoment, referenceImagePaths.length);
+    // 直接使用首帧描述中的"首帧提示"内容，不添加额外描述
+    const composePrompt = prompt;
     console.log(`[首帧生成] ${storyboard.id}: 使用参考图合成`);
     console.log(`[首帧生成] 参考图: ${referenceImagePaths.map(p => path.relative(workspaceRoot, p)).join(', ')}`);
     console.log(`[首帧生成] 提示词: ${composePrompt.substring(0, 100)}...`);
 
-    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, '1280*720');
+    result = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
   } else {
     // 策略3：纯文生图（仅使用首帧描述中的提示词）
@@ -716,9 +723,9 @@ async function generateSingleFirstFrame(
     console.log(`[首帧生成] 提示词: ${prompt.substring(0, 100)}...`);
 
     result = await provider.textToImage(prompt, {
-      size: '1280*720',
+      size: imageSize,
       style: 'realistic'
-    });
+    }, numOutputs);
   }
 
   // 处理结果并保存
@@ -767,7 +774,6 @@ function buildComposePromptWithSubjectsAndScenes(
 3. 保持统一的美术风格、光线方向和渲染质量
 4. 画面中禁止出现任何文字、字幕、Logo 或水印
 5. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
-6. 输出尺寸为 1280x720，适合视频首帧
 
 ### 允许调整
 - 主体的姿势、表情、位置
@@ -802,7 +808,6 @@ function buildComposePromptWithSubjects(
 2. 保持统一的美术风格、光线方向和渲染质量
 3. 画面中禁止出现任何文字、字幕、Logo 或水印
 4. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
-5. 输出尺寸为 1280x720，适合视频首帧
 
 ### 允许调整
 - 背景、姿势、表情、光线
@@ -832,7 +837,6 @@ function buildComposePromptWithScenes(
 2. 保持统一的美术风格和渲染质量
 3. 画面中禁止出现任何文字、字幕、Logo 或水印
 4. 镜头为单一画面，禁止多场景拼接、分屏或插画边框
-5. 输出尺寸为 1280x720，适合视频首帧
 
 ### 允许调整
 - 根据描述调整场景细节、构图和光线
