@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub](https://img.shields.io/github/stars/Cici2014/vibevideo?style=social)](https://github.com/Cici2014/vibevideo)
 
-**Language / 语言**: [English](README.md) | [中文简体](README_CN.md)
+**Language**: [English](README.md) | [Simplified Chinese](README_CN.md)
 
 Vibe Video is a VS Code extension that lets you create videos like writing code: write scripts in Markdown, generate storyboards with AI, batch generate videos, and compose them with one click.
 
@@ -152,14 +152,13 @@ Ctrl+Shift+P → "Vibe Video: Initialize Project"
 Or click "Initialize Project" in the left Vibe Video resource tree
 
 ### 2. Write Script
-Edit `剧本.md` (Script.md) and write your video script
+Edit `Script.md` and write your video script
 
 ### 3. Use AI to Generate Complete Project Structure
 In Cursor AI Chat, enter:
 ```
-根据剧本.md 生成项目
+Generate project based on Script.md
 ```
-(Generate project based on 剧本.md)
 
 AI will automatically execute the following steps:
 1. **Extract Subjects**: Extract main characters/subjects from the script, save to `subjects/` directory
@@ -255,14 +254,14 @@ Use sidebar resource view or commands:
 
 ```
 MyVideoProject/
-├── 剧本.md                   # Your script
+├── Script.md                 # Your script
 ├── subjects/                 # Subjects/Characters (description + generated images)
-│   ├── 主角.md               # Subject description
-│   ├── 主角.png              # Generated subject image
+│   ├── main-character.md     # Subject description
+│   ├── main-character.png    # Generated subject image
 │   └── ...
 ├── scenes/                   # Scenes (description + generated images)
-│   ├── 城市街道.md           # Scene description
-│   ├── 城市街道.png          # Generated scene image
+│   ├── city-street.md        # Scene description
+│   ├── city-street.png       # Generated scene image
 │   └── ...
 ├── storyboards/              # Storyboard scripts (Markdown)
 │   ├── 01-opening.md
@@ -290,7 +289,7 @@ MyVideoProject/
 - **Storyboard Duration**: Each storyboard duration **can only be 5s or 10s**, other durations are not supported
 - **Subject Function**: Used to ensure consistent character appearance, subject images have pure white background
 - **Reference Images**: Specify images to reference, represented by file address URLs
-- **Last Frame Function**: Add `- **尾帧**: first-frames/xxx-last-frame.png` field in storyboard script to enable first-last frame video generation for more precise control ⭐ New
+- **Last Frame Function**: Add `- **Last Frame**: first-frames/xxx-last-frame.png` field in storyboard script to enable first-last frame video generation for more precise control ⭐ New
 
 ## 📋 Requirements
 
@@ -319,10 +318,10 @@ MyVideoProject/
 - `Vibe Video: Generate All Videos From First Last Frame` - Generate all videos from first and last frames ⭐ New
 
 ### Single Generation (Right-click Menu)
-- `生成主体` (Generate Subject) - Generate single subject image
-- `生成场景` (Generate Scene) - Generate single scene image
-- `生成视频` (Generate Video) - Generate single video clip
-- `根据首尾帧生成视频` (Generate Video From First Last Frame) - Generate video from first and last frames ⭐ New
+- `Generate Subject` - Generate single subject image
+- `Generate Scene` - Generate single scene image
+- `Generate Video` - Generate single video clip
+- `Generate Video From First Last Frame` - Generate video from first and last frames ⭐ New
 
 ## 🚧 Development Status
 
