@@ -2,7 +2,7 @@
   "name": "vibevideo",
   "displayName": "VibeVideo",
   "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "fastpen",
   "engines": {
     "vscode": "^1.99.3"
