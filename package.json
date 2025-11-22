@@ -191,6 +191,12 @@
         "title": "图像编辑",
         "category": "Vibe Video",
         "icon": "$(edit)"
+      },
+      {
+        "command": "vibevideo.composeVideo",
+        "title": "视频合成",
+        "category": "Vibe Video",
+        "icon": "$(combine)"
       }
     ],
     "viewsContainers": {
@@ -243,6 +249,11 @@
         {
           "command": "vibevideo.generateVideos",
           "when": "view == vvResources && viewItem == storyboardsRoot",
+          "group": "inline"
+        },
+        {
+          "command": "vibevideo.composeVideo",
+          "when": "view == vvResources && viewItem == clipsRoot",
           "group": "inline"
         },
         {
@@ -626,13 +637,11 @@
           "enum": [
             "tongyi-wanxiang",
             "replicate",
-            "siliconflow",
             "google"
           ],
           "enumDescriptions": [
             "通义万相 - 国内服务，中文支持优秀，支持图生视频",
             "Replicate - 国际服务，支持多种开源模型，图生视频和文生视频",
-            "硅基流动 - 国内服务，支持文生图、图生视频、文生视频",
             "Google Gemini - Google 服务，支持 gemini-3-pro-image-preview 生图和视频生成"
           ],
           "description": "视频 AI 服务商",
@@ -641,15 +650,15 @@
         "vibevideo.dashscope.apiKey": {
           "type": "string",
           "default": "",
-          "description": "DashScope API Key（访问 https://bailian.console.aliyun.com/ 获取）",
-          "markdownDescription": "DashScope API Key\n\n[点击获取 API Key](https://bailian.console.aliyun.com/)",
+          "description": "DashScope API Key（仅适用于通义万相 provider，访问 https://bailian.console.aliyun.com/ 获取）",
+          "markdownDescription": "DashScope API Key（仅适用于通义万相 provider）\n\n[点击获取 API Key](https://bailian.console.aliyun.com/)",
           "order": 2
         },
         "vibevideo.dashscope.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "自定义 API 基础 URL（用于本地部署模型），留空则使用阿里云 DashScope。例如：http://localhost:8000/v1/services/aigc",
-          "markdownDescription": "自定义 API 基础 URL（用于本地部署模型）\n\n留空则使用阿里云 DashScope 官方服务。\n\n示例：`http://localhost:8000/v1/services/aigc`",
+          "description": "自定义 API 基础 URL（仅适用于通义万相 provider，用于本地部署模型），留空则使用阿里云 DashScope。例如：http://localhost:8000/v1/services/aigc",
+          "markdownDescription": "自定义 API 基础 URL（仅适用于通义万相 provider）\n\n用于本地部署模型，留空则使用阿里云 DashScope 官方服务。\n\n示例：`http://localhost:8000/v1/services/aigc`",
           "order": 3
         },
         "vibevideo.video.resolution": {
@@ -665,7 +674,7 @@
             "720P - 平衡质量 ⭐ 推荐",
             "1080P - 高质量，生成慢，文件大"
           ],
-          "description": "视频分辨率（DashScope 官方档位）",
+          "description": "视频分辨率（仅适用于通义万相 provider，DashScope 官方档位）",
           "order": 4
         },
         "vibevideo.video.defaultDuration": {
@@ -673,7 +682,7 @@
           "default": 5,
           "minimum": 3,
           "maximum": 30,
-          "description": "默认视频时长（秒）",
+          "description": "默认视频时长（秒，适用于所有 provider）",
           "order": 5
         },
         "vibevideo.video.numOutputs": {
@@ -681,121 +690,100 @@
           "default": 1,
           "minimum": 1,
           "maximum": 5,
-          "description": "视频生成一次生成的视频数量（n 参数）",
-          "markdownDescription": "视频生成一次生成的视频数量\n\n设置每次调用视频生成接口时生成的视频数量。\n\n- 值越大，生成的视频越多，但消耗的 API 额度也越多\n- 建议值：1-2 个\n- 当生成多个视频时，第一个使用原文件名，其余添加 `.o-1`, `.o-2` 等后缀",
+          "description": "视频生成一次生成的视频数量（n 参数，适用于所有 provider）",
+          "markdownDescription": "视频生成一次生成的视频数量（适用于所有 provider）\n\n设置每次调用视频生成接口时生成的视频数量。\n\n- 值越大，生成的视频越多，但消耗的 API 额度也越多\n- 建议值：1-2 个\n- 当生成多个视频时，第一个使用原文件名，其余添加 `.o-1`, `.o-2` 等后缀",
           "order": 6
         },
         "vibevideo.replicate.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Replicate API Token（访问 https://replicate.com/account/api-tokens 获取）",
-          "markdownDescription": "Replicate API Token\n\n[点击获取 API Token](https://replicate.com/account/api-tokens)",
+          "description": "Replicate API Token（仅适用于 Replicate provider，访问 https://replicate.com/account/api-tokens 获取）",
+          "markdownDescription": "Replicate API Token（仅适用于 Replicate provider）\n\n[点击获取 API Token](https://replicate.com/account/api-tokens)",
           "order": 7
         },
         "vibevideo.replicate.imageModel": {
           "type": "string",
           "default": "",
-          "description": "Replicate 文生图模型（可选，留空使用默认 SDXL 模型）",
-          "markdownDescription": "Replicate 文生图模型\n\n留空则使用默认的 SDXL 模型。\n\n示例：`stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b`",
+          "description": "Replicate 文生图模型（仅适用于 Replicate provider，可选，留空使用默认 SDXL 模型）",
+          "markdownDescription": "Replicate 文生图模型（仅适用于 Replicate provider）\n\n留空则使用默认的 SDXL 模型。\n\n示例：`stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b`",
           "order": 8
         },
         "vibevideo.replicate.videoModel": {
           "type": "string",
           "default": "",
-          "description": "Replicate 视频生成模型（可选，留空使用默认 zeroscope-v2-xl 模型）",
-          "markdownDescription": "Replicate 视频生成模型\n\n留空则使用默认的 zeroscope-v2-xl 模型。\n\n示例：`anotherjesse/zeroscope-v2-xl:9f1749f3b47d1c0b26555735804e7c15e53a0b7c29889a47e8b8c0b0e55e0c6c`",
+          "description": "Replicate 视频生成模型（仅适用于 Replicate provider，可选，留空使用默认 zeroscope-v2-xl 模型）",
+          "markdownDescription": "Replicate 视频生成模型（仅适用于 Replicate provider）\n\n留空则使用默认的 zeroscope-v2-xl 模型。\n\n示例：`anotherjesse/zeroscope-v2-xl:9f1749f3b47d1c0b26555735804e7c15e53a0b7c29889a47e8b8c0b0e55e0c6c`",
           "order": 9
-        },
-        "vibevideo.siliconflow.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "硅基流动 API Key（访问 https://cloud.siliconflow.cn/account/ak 获取）",
-          "markdownDescription": "硅基流动 API Key\n\n[点击获取 API Key](https://cloud.siliconflow.cn/account/ak)",
-          "order": 10
-        },
-        "vibevideo.siliconflow.baseUrl": {
-          "type": "string",
-          "default": "",
-          "description": "自定义 API 基础 URL（可选，留空使用默认 https://api.siliconflow.cn/v1）",
-          "markdownDescription": "自定义 API 基础 URL（可选）\n\n留空则使用硅基流动官方服务。\n\n示例：`https://api.siliconflow.cn/v1`",
-          "order": 11
-        },
-        "vibevideo.siliconflow.imageModel": {
-          "type": "string",
-          "default": "",
-          "description": "硅基流动图像生成模型（可选，留空使用默认 Qwen/Qwen-Image）",
-          "markdownDescription": "硅基流动图像生成模型\n\n留空则使用默认模型 `Qwen/Qwen-Image`。\n\n支持的模型：\n- `Qwen/Qwen-Image` - 文生图（默认）\n- `Kwai-Kolors/Kolors` - 文生图（支持 batch_size 批量生成）\n- `Qwen/Qwen-Image-Edit` - 图生图\n- `Qwen/Qwen-Image-Edit-2509` - 图生图（新版）\n\n参考：[图像生成 API 文档](https://docs.siliconflow.cn/cn/api-reference/images/images-generations)",
-          "order": 12
-        },
-        "vibevideo.siliconflow.videoModel": {
-          "type": "string",
-          "default": "",
-          "description": "硅基流动视频生成模型（可选，留空使用默认 Wan-AI/Wan2.1-I2V-14B-720P）",
-          "markdownDescription": "硅基流动视频生成模型\n\n留空则使用默认模型 `Wan-AI/Wan2.1-I2V-14B-720P`（图生视频）。\n\n支持的模型：\n- **图生视频（I2V）**：\n  - `Wan-AI/Wan2.1-I2V-14B-720P` - 图生视频（默认）\n  - `Wan-AI/Wan2.1-I2V-14B-720P-Turbo` - 图生视频（快速版）\n- **文生视频（T2V）**：\n  - `Wan-AI/Wan2.2-T2V-A14B` - 文生视频\n  - `Wan-AI/Wan2.1-T2V-14B` - 文生视频\n  - `Wan-AI/Wan2.1-T2V-14B-Turbo` - 文生视频（快速版）\n\n参考：[视频生成 API 文档](https://docs.siliconflow.cn/cn/api-reference/videos/videos_submit)",
-          "order": 13
         },
         "vibevideo.google.apiKey": {
           "type": "string",
           "default": "",
-          "description": "Google API Key（访问 https://makersuite.google.com/app/apikey 获取）",
-          "markdownDescription": "Google API Key\n\n[点击获取 API Key](https://makersuite.google.com/app/apikey)",
+          "description": "Google API Key（仅适用于 Google provider，访问 https://makersuite.google.com/app/apikey 获取）",
+          "markdownDescription": "Google API Key（仅适用于 Google provider）\n\n[点击获取 API Key](https://makersuite.google.com/app/apikey)",
           "order": 14
         },
         "vibevideo.google.baseUrl": {
           "type": "string",
           "default": "",
-          "description": "自定义 API 基础 URL（可选，留空使用默认 https://generativelanguage.googleapis.com/v1beta）",
-          "markdownDescription": "自定义 API 基础 URL（可选）\n\n留空则使用 Google AI Studio 官方服务。\n\n示例：`https://generativelanguage.googleapis.com/v1beta`",
+          "description": "自定义 API 基础 URL（仅适用于 Google provider，可选，留空使用默认 https://generativelanguage.googleapis.com/v1beta）",
+          "markdownDescription": "自定义 API 基础 URL（仅适用于 Google provider）\n\n留空则使用 Google AI Studio 官方服务。\n\n示例：`https://generativelanguage.googleapis.com/v1beta`",
           "order": 15
         },
         "vibevideo.google.imageModel": {
           "type": "string",
           "default": "",
-          "description": "Google 图像生成模型（可选，留空使用默认 gemini-3-pro-image-preview）",
-          "markdownDescription": "Google 图像生成模型\n\n留空则使用默认模型 `gemini-3-pro-image-preview`。\n\n支持的模型：\n- `gemini-3-pro-image-preview` - 图像生成（默认）\n- `gemini-2.0-flash-exp` - 实验性模型\n\n参考：[Google AI Studio 文档](https://ai.google.dev/)",
+          "description": "Google 图像生成模型（仅适用于 Google provider，可选，留空使用默认 gemini-3-pro-image-preview）",
+          "markdownDescription": "Google 图像生成模型（仅适用于 Google provider）\n\n留空则使用默认模型 `gemini-3-pro-image-preview`。\n\n支持的模型：\n- `gemini-3-pro-image-preview` - 图像生成（默认）\n- `gemini-2.0-flash-exp` - 实验性模型\n\n参考：[Google AI Studio 文档](https://ai.google.dev/)",
           "order": 16
         },
         "vibevideo.google.videoModel": {
           "type": "string",
           "default": "",
-          "description": "Google 视频生成模型（可选，留空使用默认 veo-3）",
-          "markdownDescription": "Google 视频生成模型\n\n留空则使用默认模型 `veo-3`。\n\n支持的模型：\n- `veo-3` - 视频生成（默认）\n- `veo-2` - 视频生成（旧版）\n\n参考：[Google Vertex AI 文档](https://cloud.google.com/vertex-ai)",
+          "description": "Google 视频生成模型（仅适用于 Google provider，可选，留空使用默认 veo-3）",
+          "markdownDescription": "Google 视频生成模型（仅适用于 Google provider）\n\n留空则使用默认模型 `veo-3`。\n\n支持的模型：\n- `veo-3` - 视频生成（默认）\n- `veo-2` - 视频生成（旧版）\n\n参考：[Google Vertex AI 文档](https://cloud.google.com/vertex-ai)",
           "order": 17
         },
         "vibevideo.google.projectId": {
           "type": "string",
           "default": "",
-          "description": "Vertex AI 项目 ID（可选，如果使用 Vertex AI 而非 Google AI Studio）",
-          "markdownDescription": "Vertex AI 项目 ID（可选）\n\n如果使用 Vertex AI 而非 Google AI Studio，请填写您的 Google Cloud 项目 ID。\n\n留空则使用 Google AI Studio API。",
+          "description": "Vertex AI 项目 ID（仅适用于 Google provider，可选，如果使用 Vertex AI 而非 Google AI Studio）",
+          "markdownDescription": "Vertex AI 项目 ID（仅适用于 Google provider）\n\n如果使用 Vertex AI 而非 Google AI Studio，请填写您的 Google Cloud 项目 ID。\n\n留空则使用 Google AI Studio API。",
           "order": 18
         },
         "vibevideo.google.location": {
           "type": "string",
           "default": "",
-          "description": "Vertex AI 位置（可选，默认使用 us-central1）",
-          "markdownDescription": "Vertex AI 位置（可选）\n\n如果使用 Vertex AI，请指定区域。\n\n默认值：`us-central1`",
+          "description": "Vertex AI 位置（仅适用于 Google provider，可选，默认使用 us-central1）",
+          "markdownDescription": "Vertex AI 位置（仅适用于 Google provider）\n\n如果使用 Vertex AI，请指定区域。\n\n默认值：`us-central1`",
           "order": 19
+        },
+        "vibevideo.image.size": {
+          "type": "string",
+          "default": "1280*720",
+          "description": "图片尺寸（统一设置，格式：宽度*高度，例如：1280*720）",
+          "markdownDescription": "图片尺寸（统一设置）⭐ 推荐\n\n统一设置所有图片生成的尺寸，包括主体图片、场景图片和首帧图片。\n\n格式：`宽度*高度`\n\n示例：\n- `1280*720`（16:9 高清）\n- `1920*1080`（16:9 全高清）\n- `1024*1024`（1:1 正方形）\n\n如果设置了此项，将自动应用到所有图片生成。如需单独设置特定类型图片尺寸，可以使用下方的高级选项。",
+          "order": 20
         },
         "vibevideo.image.subjectSize": {
           "type": "string",
-          "default": "1280*720",
-          "description": "主体图片尺寸（格式：宽度*高度，例如：1280*720）",
-          "markdownDescription": "主体图片尺寸\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1024*1024`（1:1）",
-          "order": 20
+          "default": "",
+          "description": "主体图片尺寸（可选，留空则使用统一图片尺寸）",
+          "markdownDescription": "主体图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1024*1024`（1:1）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为主体图片单独设置不同尺寸时使用。",
+          "order": 21
         },
         "vibevideo.image.sceneSize": {
           "type": "string",
-          "default": "1280*720",
-          "description": "场景图片尺寸（格式：宽度*高度，例如：1280*720）",
-          "markdownDescription": "场景图片尺寸\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）",
-          "order": 21
+          "default": "",
+          "description": "场景图片尺寸（可选，留空则使用统一图片尺寸）",
+          "markdownDescription": "场景图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为场景图片单独设置不同尺寸时使用。",
+          "order": 22
         },
         "vibevideo.image.firstFrameSize": {
           "type": "string",
-          "default": "1280*720",
-          "description": "分镜首帧图片尺寸（格式：宽度*高度，例如：1280*720）",
-          "markdownDescription": "分镜首帧图片尺寸\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）",
-          "order": 22
+          "default": "",
+          "description": "分镜首帧图片尺寸（可选，留空则使用统一图片尺寸）",
+          "markdownDescription": "分镜首帧图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为首帧图片单独设置不同尺寸时使用。",
+          "order": 23
         },
         "vibevideo.image.numOutputs": {
           "type": "number",
@@ -804,7 +792,7 @@
           "maximum": 10,
           "description": "文生图/图生图一次生成的图片数量（n 参数）",
           "markdownDescription": "文生图/图生图一次生成的图片数量\n\n设置每次调用文生图或图生图接口时生成的图片数量。\n\n- 值越大，生成的图片越多，但消耗的 API 额度也越多\n- 建议值：1-3 张\n- 当生成多张图片时，第一张使用原文件名，其余添加 `.o-1`, `.o-2` 等后缀",
-          "order": 23
+          "order": 24
         }
       }
     }

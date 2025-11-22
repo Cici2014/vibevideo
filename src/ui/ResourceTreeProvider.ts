@@ -20,7 +20,7 @@ export class ResourceTreeItem extends vscode.TreeItem {
   constructor(
     public readonly label: string,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
-    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'firstFrameMarkdown' | 'firstFrameImage' | 'clip' | 'stats' | 'subject' | 'subjectMarkdown' | 'subjectImage' | 'scene' | 'sceneMarkdown' | 'sceneImage' | 'referenceImage' | 'script',
+    public readonly resourceType?: 'storyboard' | 'firstFrameResource' | 'firstFrameMarkdown' | 'firstFrameImage' | 'clip' | 'stats' | 'subject' | 'subjectMarkdown' | 'subjectImage' | 'scene' | 'sceneMarkdown' | 'sceneImage' | 'referenceImage' | 'script' | 'outputVideo',
     public readonly resourcePath?: string,
     public readonly quality?: 'excellent' | 'good' | 'fair' | 'needs-improvement',
     public readonly relatedPaths?: FirstFrameResourcePaths
@@ -203,6 +203,17 @@ export class ResourceTreeItem extends vscode.TreeItem {
           arguments: [vscode.Uri.file(resourcePath)]
         };
       }
+    } else if (resourceType === 'outputVideo') {
+      this.iconPath = new vscode.ThemeIcon('play-circle');
+      this.contextValue = 'outputVideo';
+      // 点击视频初稿文件时打开视频
+      if (resourcePath) {
+        this.command = {
+          command: 'vibevideo.openVideoClip',
+          title: '打开视频初稿',
+          arguments: [resourcePath]
+        };
+      }
     }
   }
 }
@@ -251,7 +262,8 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       'scenes',           // 场景
       'ref-img',          // 参考图
       'first-frames',     // 首帧
-      'video-clip'        // 视频片段
+      'video-clip',       // 视频片段
+      'output'            // 视频初稿
     ];
 
     // 监听各个目录的文件变化
@@ -367,7 +379,16 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
           storyboardsRoot.contextValue = 'storyboardsRoot';
           return storyboardsRoot;
         })(),
-        new ResourceTreeItem('🎬 视频片段', vscode.TreeItemCollapsibleState.Collapsed)
+        (() => {
+          const clipsRoot = new ResourceTreeItem('🎬 视频片段', vscode.TreeItemCollapsibleState.Collapsed);
+          // 为分组节点设置 contextValue，以便在该分组右侧显示"视频合成"内联按钮
+          clipsRoot.contextValue = 'clipsRoot';
+          return clipsRoot;
+        })(),
+        (() => {
+          const outputRoot = new ResourceTreeItem('🎥 视频初稿', vscode.TreeItemCollapsibleState.Collapsed);
+          return outputRoot;
+        })()
       ];
     }
 
@@ -388,6 +409,8 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
       return await this.getFirstFrameItems();
     } else if (element.label.startsWith('🎬')) {
       return await this.getClipItems();
+    } else if (element.label.startsWith('🎥')) {
+      return await this.getOutputItems();
     }
 
     return [];
@@ -843,6 +866,33 @@ export class ResourceTreeProvider implements vscode.TreeDataProvider<ResourceTre
         fileName,
         vscode.TreeItemCollapsibleState.None,
         'clip',
+        file
+      );
+    });
+  }
+
+  /**
+   * 获取视频初稿列表（output 文件夹中的文件）
+   */
+  private async getOutputItems(): Promise<ResourceTreeItem[]> {
+    const outputDir = path.join(this.workspaceRoot!, 'output');
+    const files = await listFiles(outputDir, '.mp4');
+
+    if (files.length === 0) {
+      return [
+        new ResourceTreeItem(
+          '暂无视频初稿',
+          vscode.TreeItemCollapsibleState.None
+        )
+      ];
+    }
+
+    return files.sort().map(file => {
+      const fileName = path.basename(file);
+      return new ResourceTreeItem(
+        fileName,
+        vscode.TreeItemCollapsibleState.None,
+        'outputVideo',
         file
       );
     });

@@ -180,7 +180,6 @@ Ctrl+, → 搜索 "vibevideo"
 
 **支持的 Provider：**
 - **通义万相**：输入 DashScope API Key（推荐，✅ **已测试**，生产就绪）
-- **硅基流动**：输入硅基流动 API Key（⚠️ **未测试**）
 - **Replicate**：输入 Replicate API Token（从 https://replicate.com/account/api-tokens 获取）⚠️ **未测试**
 - **Google Gemini**：输入 Google API Key（⚠️ **未测试**）
 
@@ -203,14 +202,6 @@ Vibe Video 使用以下 AI 模型完成不同的生成任务：
 | **文生视频** | `wan2.5-i2v-preview` | 直接从文本提示词生成视频 | ✅ 已测试 |
 | **图生视频** | `wan2.5-i2v-preview` | 从首帧图片生成视频 | ✅ 已测试 |
 | **首尾帧生视频** | `wan2.2-kf2v-flash` | 从首帧和尾帧图片生成视频（用于精确控制） | ✅ 已测试 |
-
-#### 🔬 硅基流动 (SiliconFlow) - ⚠️ 未测试
-
-| 任务类型 | 默认模型 | 说明 | 测试状态 |
-|---------|---------|------|---------|
-| **文生图** | `Qwen/Qwen-Image` | 从文本提示词生成图片 | ❌ 未测试 |
-| **图生视频** | `Wan-AI/Wan2.1-I2V-14B-720P` | 从首帧图片生成视频 | ❌ 未测试 |
-| **文生视频** | `Wan-AI/Wan2.2-T2V-A14B` | 从文本提示词生成视频 | ❌ 未测试 |
 
 #### 🌐 Replicate - ⚠️ 未测试
 
@@ -237,7 +228,7 @@ Vibe Video 使用以下 AI 模型完成不同的生成任务：
   - 功能可能不完整
   - 如发现问题，欢迎提交 Issue 反馈
 
-**注意**：Replicate、硅基流动、Google Gemini 的模型可以在设置中自定义。上述列出的模型为默认值。
+**注意**：Replicate、Google Gemini 的模型可以在设置中自定义。上述列出的模型为默认值。
 
 ### 6. 生成资源
 使用侧边栏资源视图或命令：
@@ -336,7 +327,6 @@ MyVideoProject/
 - 侧边栏资源视图
 - **多 AI Provider 支持**：
   - 通义万相 API 集成（默认，✅ **已测试**，生产就绪，支持首尾帧生成视频）
-  - 硅基流动 API 集成（支持 Qwen、Wan-AI 等模型）⚠️ **未测试**
   - Replicate API 集成（支持 Zeroscope、AnimateDiff、SDXL 等多种模型）⚠️ **未测试**
   - Google Gemini API 集成（支持 gemini-3-pro-image-preview、veo-3 等模型）⚠️ **未测试**
 

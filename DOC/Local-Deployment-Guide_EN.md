@@ -174,7 +174,6 @@ Vibe Video currently supports the following AI Providers:
 | Provider | Status | Testing Status | Description |
 |---------|--------|----------------|-------------|
 | **Tongyi Wanxiang** | ✅ Production Ready | ✅ **Tested** | Default Provider, fully functional, recommended |
-| **SiliconFlow** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
 | **Replicate** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
 | **Google Gemini** | ⚠️ Development Complete | ❌ Not Tested | Implemented but not tested |
 
@@ -198,21 +197,6 @@ When using Tongyi Wanxiang API, the following models are used for different gene
 | **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) | ✅ Tested |
 
 **Local Deployment Configuration**: If using locally deployed Wan2.5 service, ensure your service supports all these models.
-
----
-
-### 🔬 SiliconFlow - Not Tested ⚠️
-
-| Task Type | Default Model | Description | Testing Status |
-|-----------|--------------|-------------|----------------|
-| **Text-to-Image** | `Qwen/Qwen-Image` | Generate images from text prompts | ❌ Not Tested |
-| **Image-to-Video** | `Wan-AI/Wan2.1-I2V-14B-720P` | Generate videos from initial frame images | ❌ Not Tested |
-| **Text-to-Video** | `Wan-AI/Wan2.2-T2V-A14B` | Generate videos from text prompts | ❌ Not Tested |
-
-**Supported Models**:
-- Image Generation: `Qwen/Qwen-Image`, `Kwai-Kolors/Kolors`, etc.
-- Image-to-Video: `Wan-AI/Wan2.1-I2V-14B-720P`, `Wan-AI/Wan2.1-I2V-14B-720P-Turbo`
-- Text-to-Video: `Wan-AI/Wan2.2-T2V-A14B`, `Wan-AI/Wan2.1-T2V-14B`, `Wan-AI/Wan2.1-T2V-14B-Turbo`
 
 ---
 

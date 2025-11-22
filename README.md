@@ -27,7 +27,6 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Image-to-video generation (higher quality, more controllable)
 - Multiple AI Provider support:
   - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, ✅ **Tested**, production ready)
-  - **SiliconFlow API** (supports Qwen, Wan-AI models) ⚠️ **Not Tested**
   - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Not Tested**
   - **Google Gemini API** (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
@@ -129,7 +128,6 @@ Configuration Files (for AI understanding)
 
 **Production Dependencies**: 
 - Tongyi Wanxiang API (optional, default, ✅ **Tested**, production ready)
-- SiliconFlow API (optional, ⚠️ **Not Tested**)
 - Replicate API (optional, ⚠️ **Not Tested**)
 - Google Gemini API (optional, ⚠️ **Not Tested**)
 
@@ -178,13 +176,12 @@ Ctrl+Shift+P → "Vibe Video: Configure Video AI"
 **Method 2**: Open Settings Directly (Recommended)
 ```
 Ctrl+, → Search "vibevideo"
-→ Select Provider (Tongyi Wanxiang, SiliconFlow, Replicate, or Google Gemini)
+→ Select Provider (Tongyi Wanxiang, Replicate, or Google Gemini)
 → Enter API Key/Token
 ```
 
 **Supported Providers:**
 - **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, ✅ **Tested**, Production Ready)
-- **SiliconFlow**: Enter SiliconFlow API Key (⚠️ **Not Tested**)
 - **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Not Tested**
 - **Google Gemini**: Enter Google API Key (⚠️ **Not Tested**)
 
@@ -207,14 +204,6 @@ Vibe Video uses the following AI models for different generation tasks:
 | **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts | ✅ Tested |
 | **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images | ✅ Tested |
 | **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) | ✅ Tested |
-
-#### 🔬 SiliconFlow - ⚠️ Not Tested
-
-| Task Type | Default Model | Description | Testing Status |
-|-----------|--------------|-------------|---------------|
-| **Text-to-Image** | `Qwen/Qwen-Image` | Generate images from text prompts | ❌ Not Tested |
-| **Image-to-Video** | `Wan-AI/Wan2.1-I2V-14B-720P` | Generate videos from initial frame images | ❌ Not Tested |
-| **Text-to-Video** | `Wan-AI/Wan2.2-T2V-A14B` | Generate videos from text prompts | ❌ Not Tested |
 
 #### 🌐 Replicate - ⚠️ Not Tested
 
@@ -241,7 +230,7 @@ Vibe Video uses the following AI models for different generation tasks:
   - Features may be incomplete
   - If you find issues, please submit an Issue
 
-**Note**: Replicate, SiliconFlow, and Google Gemini models can be customized in settings. The models listed above are defaults.
+**Note**: Replicate and Google Gemini models can be customized in settings. The models listed above are defaults.
 
 ### 6. Generate Resources
 Use sidebar resource view or commands:
@@ -340,7 +329,6 @@ Current Version: **0.0.3 (Alpha)**
 - Sidebar resource view
 - **Multiple AI Provider support**:
   - Tongyi Wanxiang API integration (default, ✅ **Tested**, production ready, supports first-last frame video generation)
-  - SiliconFlow API integration (supports Qwen, Wan-AI models) ⚠️ **Not Tested**
   - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Not Tested**
   - Google Gemini API integration (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 

@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ProviderConfig, TongyiConfig, ReplicateConfig, SiliconFlowConfig, GoogleConfig } from '../providers/types';
+import { ProviderConfig, TongyiConfig, ReplicateConfig, GoogleConfig } from '../providers/types';
 
 export class ConfigManager {
   private context: vscode.ExtensionContext;
@@ -24,7 +24,7 @@ export class ConfigManager {
    */
   async getProviderConfig(): Promise<ProviderConfig> {
     const config = this.getConfig();
-    const provider = config.get<'tongyi-wanxiang' | 'replicate' | 'siliconflow' | 'google'>('provider', 'tongyi-wanxiang');
+    const provider = config.get<'tongyi-wanxiang' | 'replicate' | 'google'>('provider', 'tongyi-wanxiang');
     const configured = await this.isProviderConfigured(provider);
 
     return {
@@ -43,10 +43,6 @@ export class ConfigManager {
     }
     if (provider === 'replicate') {
       const config = await this.getReplicateConfig();
-      return !!(config?.apiKey);
-    }
-    if (provider === 'siliconflow') {
-      const config = await this.getSiliconFlowConfig();
       return !!(config?.apiKey);
     }
     if (provider === 'google') {
@@ -97,29 +93,6 @@ export class ConfigManager {
   }
 
   /**
-   * 获取硅基流动配置
-   */
-  async getSiliconFlowConfig(): Promise<SiliconFlowConfig | undefined> {
-    const config = this.getConfig();
-    
-    const apiKey = config.get<string>('siliconflow.apiKey', '');
-    const baseUrl = config.get<string>('siliconflow.baseUrl', '');
-    const imageModel = config.get<string>('siliconflow.imageModel', '');
-    const videoModel = config.get<string>('siliconflow.videoModel', '');
-
-    if (!apiKey) {
-      return undefined;
-    }
-
-    return {
-      apiKey,
-      baseUrl: baseUrl || undefined,
-      imageModel: imageModel || undefined,
-      videoModel: videoModel || undefined
-    };
-  }
-
-  /**
    * 获取 Google 配置
    */
   async getGoogleConfig(): Promise<GoogleConfig | undefined> {
@@ -161,24 +134,58 @@ export class ConfigManager {
   }
 
   /**
+   * 获取统一图片尺寸（优先级最高）
+   */
+  getImageSize(): string {
+    return this.getConfig().get<string>('image.size', '1280*720');
+  }
+
+  /**
    * 获取主体图片尺寸
+   * 优先使用统一配置，如果统一配置未设置或为空则使用独立配置
    */
   getSubjectImageSize(): string {
-    return this.getConfig().get<string>('image.subjectSize', '1280*720');
+    const config = this.getConfig();
+    // 优先使用统一配置（有默认值 1280*720）
+    const unifiedSize = config.get<string>('image.size', '1280*720');
+    if (unifiedSize && unifiedSize.trim()) {
+      return unifiedSize;
+    }
+    // 如果统一配置为空，检查是否设置了独立配置
+    const specificSize = config.get<string>('image.subjectSize', '');
+    return (specificSize && specificSize.trim()) ? specificSize : '1280*720';
   }
 
   /**
    * 获取场景图片尺寸
+   * 优先使用统一配置，如果统一配置未设置或为空则使用独立配置
    */
   getSceneImageSize(): string {
-    return this.getConfig().get<string>('image.sceneSize', '1280*720');
+    const config = this.getConfig();
+    // 优先使用统一配置（有默认值 1280*720）
+    const unifiedSize = config.get<string>('image.size', '1280*720');
+    if (unifiedSize && unifiedSize.trim()) {
+      return unifiedSize;
+    }
+    // 如果统一配置为空，检查是否设置了独立配置
+    const specificSize = config.get<string>('image.sceneSize', '');
+    return (specificSize && specificSize.trim()) ? specificSize : '1280*720';
   }
 
   /**
    * 获取首帧图片尺寸
+   * 优先使用统一配置，如果统一配置未设置或为空则使用独立配置
    */
   getFirstFrameImageSize(): string {
-    return this.getConfig().get<string>('image.firstFrameSize', '1280*720');
+    const config = this.getConfig();
+    // 优先使用统一配置（有默认值 1280*720）
+    const unifiedSize = config.get<string>('image.size', '1280*720');
+    if (unifiedSize && unifiedSize.trim()) {
+      return unifiedSize;
+    }
+    // 如果统一配置为空，检查是否设置了独立配置
+    const specificSize = config.get<string>('image.firstFrameSize', '');
+    return (specificSize && specificSize.trim()) ? specificSize : '1280*720';
   }
 
   /**

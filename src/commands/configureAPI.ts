@@ -36,11 +36,6 @@ export async function configureVideoAI(
     message = `当前使用: ${providerDisplayName}\n\n请在设置面板中配置 Replicate API Token`;
     guideUrl = 'https://replicate.com/account/api-tokens';
     guideText = '请在 Replicate 账户页面获取 API Token，然后在设置中填入';
-  } else if (config.provider === 'siliconflow') {
-    providerDisplayName = '硅基流动 (SiliconFlow)';
-    message = `当前使用: ${providerDisplayName}\n\n请在设置面板中配置硅基流动 API Key`;
-    guideUrl = 'https://cloud.siliconflow.cn/account/ak';
-    guideText = '请在硅基流动控制台获取 API Key，然后在设置中填入';
   } else if (config.provider === 'google') {
     providerDisplayName = 'Google Gemini';
     message = `当前使用: ${providerDisplayName}\n\n请在设置面板中配置 Google API Key`;
@@ -119,26 +114,6 @@ export async function showCurrentConfig(configManager: ConfigManager): Promise<v
       details.push(`文生图模型: ${imageModelShort}`);
       details.push(`视频模型: ${videoModelShort}`);
     }
-  } else if (config.provider === 'siliconflow') {
-    providerName = '硅基流动 (SiliconFlow)';
-    serviceType = '☁️ 在线服务';
-    const siliconFlowConfig = await configManager.getSiliconFlowConfig();
-    if (siliconFlowConfig) {
-      details.push(`API Key: ${siliconFlowConfig.apiKey.substring(0, 8)}...`);
-      
-      if (siliconFlowConfig.baseUrl) {
-        details.push(`API 地址: ${siliconFlowConfig.baseUrl}`);
-      }
-      
-      // 显示使用的模型
-      const imageModel = siliconFlowConfig.imageModel || 'Qwen/Qwen-Image (默认)';
-      const videoModel = siliconFlowConfig.videoModel || 'Wan-AI/Wan2.1-I2V-14B-720P (默认)';
-      
-      details.push(`图像模型: ${imageModel}`);
-      details.push(`视频模型: ${videoModel}`);
-      details.push(`支持功能: 文生图、图生视频、文生视频`);
-      details.push(`注意事项: 图像URL有效期1小时，视频需轮询状态获取链接`);
-    }
   } else if (config.provider === 'google') {
     providerName = 'Google Gemini';
     serviceType = '☁️ 在线服务';
@@ -191,9 +166,6 @@ export async function showCurrentConfig(configManager: ConfigManager): Promise<v
     } else if (config.provider === 'replicate') {
       message += `请在设置中配置 Replicate API Token\n`;
       message += `(搜索 "vibevideo.replicate.apiKey")`;
-    } else if (config.provider === 'siliconflow') {
-      message += `请在设置中配置硅基流动 API Key\n`;
-      message += `(搜索 "vibevideo.siliconflow.apiKey")`;
     } else if (config.provider === 'google') {
       message += `请在设置中配置 Google API Key\n`;
       message += `(搜索 "vibevideo.google.apiKey")`;

@@ -80,7 +80,7 @@ export interface VideoAIProvider {
  */
 export interface ProviderConfig {
   /** Provider 类型 */
-  provider: 'tongyi-wanxiang' | 'replicate' | 'siliconflow' | 'google';
+  provider: 'tongyi-wanxiang' | 'replicate' | 'google';
   /** 是否已配置 */
   configured: boolean;
 }
@@ -106,19 +106,6 @@ export interface ReplicateConfig {
   videoModel?: string;
 }
 
-/**
- * 硅基流动配置
- */
-export interface SiliconFlowConfig {
-  /** 硅基流动 API Key（访问 https://cloud.siliconflow.cn/account/ak 获取） */
-  apiKey: string;
-  /** 自定义 API 基础 URL（可选，默认使用 https://api.siliconflow.cn/v1） */
-  baseUrl?: string;
-  /** 图像生成模型（可选，默认使用 Qwen/Qwen2.5-7B-Instruct） */
-  imageModel?: string;
-  /** 视频生成模型（可选，默认使用 Qwen/Qwen2.5-7B-Instruct） */
-  videoModel?: string;
-}
 
 /**
  * Google 配置

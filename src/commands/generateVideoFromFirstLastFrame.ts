@@ -156,14 +156,16 @@ async function generateSingleVideoFromFirstLastFrame(
       return;
     }
 
-    // 验证并获取时长（分镜时长只能是5秒或10秒）
+    // 验证并获取时长（优先使用分镜描述中的时长，如果不符合要求则使用配置中的默认时长）
     let duration = storyboard.duration;
     if (!duration) {
-      console.warn(`[警告] 分镜 ${storyboard.id} 未指定时长，使用默认值5秒`);
-      duration = 5; // 默认5秒
+      const defaultDuration = configManager.getDefaultDuration();
+      console.warn(`[警告] 分镜 ${storyboard.id} 未指定时长，使用配置中的默认时长 ${defaultDuration}秒`);
+      duration = defaultDuration;
     } else if (duration !== 5 && duration !== 10) {
-      console.warn(`[警告] 分镜 ${storyboard.id} 的时长 ${duration}秒 不符合规范（只能是5秒或10秒），使用默认值5秒`);
-      duration = 5; // 不符合规范时使用默认值
+      const defaultDuration = configManager.getDefaultDuration();
+      console.warn(`[警告] 分镜 ${storyboard.id} 的时长 ${duration}秒 不符合规范（只能是5秒或10秒），使用配置中的默认时长 ${defaultDuration}秒`);
+      duration = defaultDuration;
     }
 
     // 检查视频是否已存在

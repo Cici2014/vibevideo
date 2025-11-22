@@ -20,6 +20,7 @@ import { generateAllFirstFrames, generateFirstFrameForStoryboard } from './comma
 import { generateAllSubjects, generateSingleSubjectCommand } from './commands/generateSubjects';
 import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
 import { editImage } from './commands/editImage';
+import { composeAllVideos } from './commands/composeVideo';
 import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
@@ -52,7 +53,6 @@ export function activate(context: vscode.ExtensionContext) {
     if (e.affectsConfiguration('vibevideo.provider') || 
         e.affectsConfiguration('vibevideo.dashscope') || 
         e.affectsConfiguration('vibevideo.replicate') ||
-        e.affectsConfiguration('vibevideo.siliconflow') ||
         e.affectsConfiguration('vibevideo.google')) {
       // 配置变化时重置 Provider，下次获取时会重新创建
       providerManager?.resetProvider();
@@ -1248,6 +1248,18 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // 视频合成命令
+  const composeVideoCommand = vscode.commands.registerCommand(
+    'vibevideo.composeVideo',
+    async () => {
+      if (!resourceTreeProvider) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
+        return;
+      }
+      await composeAllVideos(context, resourceTreeProvider);
+    }
+  );
+
   // 注册所有命令和视图
   context.subscriptions.push(
     treeView,
@@ -1281,6 +1293,7 @@ export function activate(context: vscode.ExtensionContext) {
     deselectImageCommand,
     selectImageCommand,
     editImageCommand,
+    composeVideoCommand,
     // 注册资源树提供者以便在扩展停用时清理监听器
     {
       dispose: () => {
