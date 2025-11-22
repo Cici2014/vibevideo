@@ -26,9 +26,9 @@ Vibe Video is a VS Code extension that lets you **create videos like writing cod
 ### Workflow
 
 ```
-Write Script → AI Generates Project Structure → Generate Images → Generate Videos → Complete
-     ↑                                                                                    ↓
-     └────────────────────────────── Review/Iterate ←─────────────────────────────────────┘
+Write Script → AI Generates Project Structure → Generate Images → Generate Videos → Compose Final Video → Complete
+     ↑                                                                                                          ↓
+     └────────────────────────────────── Review/Iterate ←─────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -46,6 +46,7 @@ Vibe Video requires an AI service provider API Key:
 1. **Get API Key**
    - Tongyi Wanxiang (Recommended): Visit [DashScope Console](https://bailian.console.aliyun.com/)
    - Replicate: Visit [Replicate](https://replicate.com/)
+   - Google Gemini: Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 2. **Configure**
    - `Ctrl+,` → Search `vibevideo` → Set Provider and API Key
@@ -65,6 +66,8 @@ MyVideoProject/
 ├── storyboards/         # Storyboard scripts
 ├── first-frames/        # First frames
 ├── video-clip/          # Video clips
+├── output/              # Final composed video
+│   └── final.mp4
 └── ...
 ```
 
@@ -107,6 +110,16 @@ Batch generate:
 - `Vibe Video: Generate All Videos` - Generate videos
 
 Or right-click resources to select generate commands.
+
+### 7. Compose Final Video ⭐
+
+After generating all video clips, compose them into a final video:
+
+- `Vibe Video: Compose Video` - Compose all video clips into final video
+
+The final video will be saved to `output/final.mp4`.
+
+**Note**: FFmpeg is required for video composition. The extension will automatically detect and guide you to install FFmpeg if needed.
 
 ---
 
@@ -195,6 +208,12 @@ Or right-click resources to select generate commands.
 - **Text-to-Video**: Only use text prompt
 - **First-Last Frame Video** (Advanced): Use first frame + last frame images
 
+#### Video Composition ⭐
+- **Compose Video**: `Vibe Video: Compose Video` - Merge all video clips into final video
+- Uses FFmpeg to combine clips in storyboard order
+- Output: `output/final.mp4`
+- Automatically handles missing clips (prompts user and allows continuation)
+
 ### Configuration Management
 
 - View Config: `Vibe Video: Show Current Config`
@@ -202,7 +221,10 @@ Or right-click resources to select generate commands.
 
 Main Configuration Items:
 - `vibevideo.provider`: AI Service Provider (default: `tongyi-wanxiang`)
-- `vibevideo.dashscope.apiKey`: DashScope API Key
+  - Options: `tongyi-wanxiang`, `replicate`, `google`
+- `vibevideo.dashscope.apiKey`: DashScope API Key (for Tongyi Wanxiang)
+- `vibevideo.replicate.apiKey`: Replicate API Token (for Replicate)
+- `vibevideo.google.apiKey`: Google API Key (for Google Gemini)
 - `vibevideo.video.resolution`: Video Resolution (default: `720P`)
 
 ---
@@ -223,6 +245,12 @@ A: Check API Key, network connection, API quota, and view error messages in VS C
 
 **Q: Can I use locally deployed models?**  
 A: Yes. Configure `vibevideo.dashscope.baseUrl` to your local service address.
+
+**Q: How do I compose all video clips into a final video?**  
+A: Use `Vibe Video: Compose Video` command. FFmpeg is required - the extension will guide you to install it if needed.
+
+**Q: What if FFmpeg is not installed?**  
+A: The extension will automatically detect FFmpeg and guide you to install it. You can install FFmpeg from system PATH or via npm package.
 
 ---
 

@@ -26,9 +26,9 @@ Vibe Video 是一个 VS Code 扩展，让您能够**像写代码一样制作视�
 ### 工作流程
 
 ```
-编写剧本 → AI生成项目结构 → 生成图片资源 → 生成视频片段 → 完成
-     ↑                                                          ↓
-     └─────────────────── 审核/迭代 ←──────────────────────────┘
+编写剧本 → AI生成项目结构 → 生成图片资源 → 生成视频片段 → 合成最终视频 → 完成
+     ↑                                                                      ↓
+     └────────────────────────────── 审核/迭代 ←──────────────────────────┘
 ```
 
 ---
@@ -46,6 +46,7 @@ Vibe Video 需要配置 AI 服务商的 API Key：
 1. **获取 API Key**
    - 通义万相（推荐）：访问 [DashScope 控制台](https://bailian.console.aliyun.com/)
    - Replicate：访问 [Replicate 官网](https://replicate.com/)
+   - Google Gemini：访问 [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 2. **配置方式**
    - `Ctrl+,` → 搜索 `vibevideo` → 设置 Provider 和 API Key
@@ -65,6 +66,8 @@ MyVideoProject/
 ├── storyboards/         # 分镜脚本
 ├── first-frames/        # 首帧
 ├── video-clip/          # 视频片段
+├── output/              # 最终合成视频
+│   └── final.mp4
 └── ...
 ```
 
@@ -107,6 +110,16 @@ MyVideoProject/
 - `Vibe Video: Generate All Videos` - 生成视频
 
 或右键点击资源选择生成命令。
+
+### 7. 合成最终视频 ⭐
+
+生成所有视频片段后，将它们合成为最终视频：
+
+- `Vibe Video: Compose Video` - 将所有视频片段合成为最终视频
+
+最终视频将保存到 `output/final.mp4`。
+
+**注意**：视频合成需要 FFmpeg。扩展会自动检测并引导您安装 FFmpeg（如果需要）。
 
 ---
 
@@ -195,6 +208,12 @@ MyVideoProject/
 - **文生视频**：仅使用文本提示词
 - **首尾帧生视频**（高级）：使用首帧 + 尾帧图片
 
+#### 视频合成 ⭐
+- **合成视频**：`Vibe Video: Compose Video` - 将所有视频片段合并为最终视频
+- 使用 FFmpeg 按分镜顺序合并片段
+- 输出：`output/final.mp4`
+- 自动处理缺失片段（提示用户并允许继续）
+
 ### 配置管理
 
 - 查看配置：`Vibe Video: Show Current Config`
@@ -202,7 +221,10 @@ MyVideoProject/
 
 主要配置项：
 - `vibevideo.provider`：AI 服务商（默认：`tongyi-wanxiang`）
-- `vibevideo.dashscope.apiKey`：DashScope API Key
+  - 选项：`tongyi-wanxiang`、`replicate`、`google`
+- `vibevideo.dashscope.apiKey`：DashScope API Key（用于通义万相）
+- `vibevideo.replicate.apiKey`：Replicate API Token（用于 Replicate）
+- `vibevideo.google.apiKey`：Google API Key（用于 Google Gemini）
 - `vibevideo.video.resolution`：视频分辨率（默认：`720P`）
 
 ---
@@ -223,6 +245,12 @@ A: 检查 API Key、网络连接、API 额度，查看 VS Code 输出面板的�
 
 **Q: 可以使用本地部署的模型吗？**  
 A: 可以。配置 `vibevideo.dashscope.baseUrl` 为本地服务地址。
+
+**Q: 如何将所有视频片段合成为最终视频？**  
+A: 使用 `Vibe Video: Compose Video` 命令。需要 FFmpeg - 扩展会在需要时引导您安装。
+
+**Q: 如果 FFmpeg 未安装怎么办？**  
+A: 扩展会自动检测 FFmpeg 并引导您安装。您可以从系统 PATH 安装 FFmpeg 或通过 npm 包安装。
 
 ---
 

@@ -45,7 +45,8 @@ flowchart LR
     A[📝 Write Script<br/>AI-assisted] --> B[🤖 Generate Project Structure<br/>Subjects/Scenes/Storyboards/First Frames]
     B --> C[🖼️ Generate Image Resources<br/>Subjects/Scenes/First Frames]
     C --> D[🎬 Generate Video Clips]
-    D --> E[✅ Complete]
+    D --> E[🎞️ Compose Final Video]
+    E --> F[✅ Complete]
     
     B -.Review/Iterate.-> B
     C -.Review/Iterate.-> C
@@ -55,7 +56,8 @@ flowchart LR
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#f3e5f5
-    style E fill:#c8e6c9
+    style E fill:#fff9c4
+    style F fill:#c8e6c9
 ```
 
 **Core Philosophy**: The entire process can be iterated repeatedly, just like coding. Generating resources is like "compiling", and manual review is like "finding bugs". If it doesn't pass, you can iterate multiple times until satisfied.
@@ -304,17 +306,18 @@ MyVideoProject/
 - `Vibe Video: Generate First Frames` - Batch generate all first frame images
 - `Vibe Video: Generate All Videos` - Batch generate all videos
 - `Vibe Video: Compose All First Frames` - Compose first frames using subjects and scenes
-- `Vibe Video: Generate All Videos From First Last Frame` - Generate all videos from first and last frames ⭐ New
+- `Vibe Video: Generate All Videos From First Last Frame` - Generate all videos from first and last frames ⭐
+- `Vibe Video: Compose Video` - Compose all video clips into final video ⭐ New
 
 ### Single Generation (Right-click Menu)
 - `Generate Subject` - Generate single subject image
 - `Generate Scene` - Generate single scene image
 - `Generate Video` - Generate single video clip
-- `Generate Video From First Last Frame` - Generate video from first and last frames ⭐ New
+- `Generate Video From First Last Frame` - Generate video from first and last frames ⭐
 
 ## 🚧 Development Status
 
-Current Version: **0.0.3 (Alpha)**
+Current Version: **0.0.6 (Alpha)**
 
 ### ✅ Implemented
 - Project initialization (including subjects, scenes directories)
@@ -323,8 +326,9 @@ Current Version: **0.0.3 (Alpha)**
 - Scene library management (generate scene images)
 - First frame generation (text-to-image)
 - Video generation (image-to-video, based on first frames)
-- **First-last frame video generation** (using first frame + last frame) ⭐ New
+- **First-last frame video generation** (using first frame + last frame) ⭐
 - Multi-image composition (subject + scene → first frame)
+- **Video composition** (FFmpeg-based video merging) ⭐ New
 - Quality checks
 - Sidebar resource view
 - **Multiple AI Provider support**:
@@ -333,7 +337,6 @@ Current Version: **0.0.3 (Alpha)**
   - Google Gemini API integration (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
 ### 🚧 In Development
-- Video composition (ffmpeg composition for final video)
 - Parallel generation optimization
 - **More AI Provider Support**:
   - Support OpenAI Sora model, provide higher quality video generation capabilities
@@ -350,7 +353,7 @@ Detailed documentation can be found in the `DOC/` directory:
 - [Tutorial](DOC/tutorial.md) - Complete Vibe Video usage guide (to be completed)
 - [API Key Guide](DOC/API-KEY-Guide_EN.md) - How to get DashScope API Key
 - [API Comparison](DOC/api-comparison_EN.md) - Video generation API comparison (Replicate vs Tongyi Wanxiang)
-- [Local Deployment Guide](DOC/Local-Deployment-Wan2.5-Guide_EN.md) - How to configure local Wan2.5 deployment
+- [Local Deployment Guide](DOC/Local-Deployment-Guide_EN.md) - How to configure local Wan2.5 deployment
 
 ## 🤝 Contributing
 

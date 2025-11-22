@@ -44,7 +44,8 @@ flowchart LR
     A[📝 编写剧本<br/>AI辅助] --> B[🤖 生成项目结构<br/>主体/场景/分镜/首帧]
     B --> C[🖼️ 生成图片资源<br/>主体/场景/首帧]
     C --> D[🎬 生成视频片段]
-    D --> E[✅ 完成]
+    D --> E[🎞️ 合成最终视频]
+    E --> F[✅ 完成]
     
     B -.审核/迭代.-> B
     C -.审核/迭代.-> C
@@ -54,7 +55,8 @@ flowchart LR
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#f3e5f5
-    style E fill:#c8e6c9
+    style E fill:#fff9c4
+    style F fill:#c8e6c9
 ```
 
 **核心理念**：整个过程可以反复迭代，就像编码一样。生成资源就像"编译"，人工审核就像"找 bug"。如果不通过，可以多次迭代，直到满意为止。
@@ -302,17 +304,18 @@ MyVideoProject/
 - `Vibe Video: Generate First Frames` - 批量生成所有首帧图片
 - `Vibe Video: Generate All Videos` - 批量生成所有视频
 - `Vibe Video: Compose All First Frames` - 使用主体和场景合成首帧
-- `Vibe Video: Generate All Videos From First Last Frame` - 根据首尾帧批量生成所有视频 ⭐ 新增
+- `Vibe Video: Generate All Videos From First Last Frame` - 根据首尾帧批量生成所有视频 ⭐
+- `Vibe Video: Compose Video` - 将所有视频片段合成为最终视频 ⭐ 新增
 
 ### 单个生成（右键菜单）
 - `生成主体` - 生成单个主体图片
 - `生成场景` - 生成单个场景图片
 - `生成视频` - 生成单个视频片段
-- `根据首尾帧生成视频` - 根据首帧和尾帧生成视频 ⭐ 新增
+- `根据首尾帧生成视频` - 根据首帧和尾帧生成视频 ⭐
 
 ## 🚧 开发状态
 
-当前版本：**0.0.3 (Alpha)**
+当前版本：**0.0.6 (Alpha)**
 
 ### ✅ 已实现
 - 项目初始化（包含主体、场景目录）
@@ -321,8 +324,9 @@ MyVideoProject/
 - 场景库管理（生成场景图片）
 - 首帧生成（文生图）
 - 视频生成（图生视频，基于首帧）
-- **首尾帧生成视频**（使用首帧+尾帧生成视频）⭐ 新增
+- **首尾帧生成视频**（使用首帧+尾帧生成视频）⭐
 - 多图合成（主体+场景合成首帧）
+- **视频合成**（使用 FFmpeg 合成最终视频）⭐ 新增
 - 质量检查
 - 侧边栏资源视图
 - **多 AI Provider 支持**：
@@ -331,7 +335,6 @@ MyVideoProject/
   - Google Gemini API 集成（支持 gemini-3-pro-image-preview、veo-3 等模型）⚠️ **未测试**
 
 ### 🚧 开发中
-- 视频合成（ffmpeg 合成最终视频）
 - 并行生成优化
 - **更多 AI Provider 支持**：
   - 支持 OpenAI Sora 模型，提供更高质量的视频生成能力
@@ -346,9 +349,9 @@ MyVideoProject/
 
 详细文档请查看 `DOC/` 目录：
 - [使用教程](DOC/tutorial.md) - Vibe Video 完整使用指南（待完善）
-- [API Key 获取指南](DOC/API-KEY-获取指南.md) - 如何获取 DashScope API Key
+- [API Key 获取指南](DOC/API-KEY-Guide.md) - 如何获取 DashScope API Key
 - [API 对比分析](DOC/api-comparison.md) - 视频生成 API 对比（Replicate vs 通义万相）
-- [本地部署配置指南](DOC/本地部署wan2.5配置指南.md) - 如何配置本地部署的 Wan2.5
+- [本地部署配置指南](DOC/Local-Deployment-Guide.md) - 如何配置本地部署的 Wan2.5
 
 ## 🤝 贡献
 

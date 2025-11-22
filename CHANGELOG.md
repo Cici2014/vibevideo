@@ -252,6 +252,47 @@ Vibe Video 扩展的所有重要变更都会记录在这个文件中。
 
 ---
 
+## [0.0.6] - 2025-01-22
+
+### ✅ 新增功能
+
+#### 视频合成 ⭐
+- 实现 `Vibe Video: Compose Video` 命令
+- 使用 FFmpeg 将所有视频片段按分镜顺序合成为一个长视频
+- 自动检测并安装 FFmpeg（支持系统 PATH 和 npm 包安装）
+- 智能处理缺失的视频片段（提示用户并允许继续合成）
+- 支持 Windows、macOS、Linux 多平台
+- 完整的进度显示和错误处理
+- 输出文件到 `output/final.mp4`
+
+#### FFmpeg 工具类
+- 实现 `FFmpegManager` 工具类
+- 自动检测系统 FFmpeg
+- 支持从 npm 包自动安装 FFmpeg
+- FFmpeg 验证和路径管理
+- 友好的安装提示和错误处理
+
+#### 代码优化
+- 移除 SiliconFlowProvider（不再维护）
+- 更新文档结构，统一 API-KEY 指南命名
+- 优化项目配置和类型定义
+
+### 📊 技术细节
+
+- 新增文件：`src/commands/composeVideo.ts`（约 225 行）
+- 新增文件：`src/utils/ffmpeg.ts`（约 230 行）
+- 使用 FFmpeg concat demuxer 进行视频合并（保持原始质量）
+- 支持跨平台路径处理（Windows/Linux/macOS）
+
+### 🎯 使用场景
+
+视频合成功能特别适用于：
+- 将所有分镜视频片段合成为最终成片
+- 快速预览完整视频效果
+- 导出最终视频文件
+
+---
+
 ## [Unreleased]
 
 ### 计划功能
