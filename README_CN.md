@@ -3,7 +3,8 @@
 **像写代码一样制作视频**
 
 [![VS Code Marketplace](https://img.shields.io/badge/VS%20Code-Marketplace-blue)](https://marketplace.visualstudio.com/vscode)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: Commercial](https://img.shields.io/badge/License-Commercial-green.svg)](LICENSE-COMMERCIAL.md)
 [![GitHub](https://img.shields.io/github/stars/Cici2014/vibevideo?style=social)](https://github.com/Cici2014/vibevideo)
 
 **语言 / Language**: [中文简体](README_CN.md) | [English](README.md)
@@ -375,7 +376,20 @@ MyVideoProject/
 
 ## 📄 License
 
-MIT
+Vibe Video 采用双重许可模式：
+
+- **GPL v3**：适用于开源项目和个人开发者（详见 [LICENSE](LICENSE)）
+- **商业许可**：适用于需要闭源使用或不想遵守 GPL 条款的商业用户（详见 [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md)）
+
+### 选择许可
+
+- **开源使用**：如果您是开源项目或个人开发者，可以直接使用 GPL v3 许可，完全免费
+- **商业使用**：如果您需要在专有软件中使用或不想开源衍生作品，请购买商业许可
+
+如需购买商业许可，请联系：
+- 📧 邮箱：cici_yiyi@qq.com
+- 💬 微信：扫描二维码添加
+- 👥 QQ群：454222772
 
 ---
 
