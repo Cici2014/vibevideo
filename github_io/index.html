@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Video - 像写代码一样制作视频</title>
+    <meta name="description" content="Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频：用 Markdown 写剧本，用 AI 生成分镜，批量生成视频，一键合成。">
+    <link rel="icon" type="image/png" href="../icon.png">
+    <link rel="apple-touch-icon" href="../icon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #6366F1;
+            --secondary-color: #8B5CF6;
+            --accent-color: #EC4899;
+            --text-primary: #E5E7EB;
+            --text-secondary: #9CA3AF;
+            --bg-light: #0F0F0F;
+            --bg-white: #1A1A1A;
+            --bg-card: #1F1F1F;
+            --border-color: #333333;
+            --shadow: 0 2px 20px rgba(99, 102, 241, 0.3);
+            --shadow-lg: 0 10px 40px rgba(139, 92, 246, 0.4);
+            --rainbow-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            --rainbow-gradient-2: linear-gradient(135deg, #fa709a 0%, #fee140 25%, #30cfd0 50%, #330867 75%, #fa709a 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            background: #000000;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 0% 100%, rgba(79, 172, 254, 0.15) 0px, transparent 50%);
+        }
+
+        /* Header */
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 8s ease infinite;
+            color: white;
+            padding: 2rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 30px rgba(99, 102, 241, 0.5);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        nav {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo img {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .nav-links a:hover {
+            opacity: 0.8;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+            background-size: 200% 200%;
+            animation: gradientShift 8s ease infinite;
+            color: white;
+            padding: 6rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 2rem;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(99, 102, 241, 0.5), 0 0 60px rgba(139, 92, 246, 0.3);
+            animation: fadeInUp 0.8s ease, float 3s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.6));
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .hero .subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+
+        .hero .description {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            animation: fadeInUp 0.8s ease 0.4s both;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.8s ease 0.6s both;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.6);
+            background: linear-gradient(135deg, #764ba2 0%, #f093fb 50%, #4facfe 100%);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+        }
+
+        /* Badges */
+        .badges {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Sections */
+        section {
+            padding: 5rem 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: var(--rainbow-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.5));
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+        }
+
+        /* Features */
+        .features {
+            background: var(--bg-light);
+            position: relative;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--rainbow-gradient);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(139, 92, 246, 0.5);
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Workflow */
+        .workflow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .workflow-step:hover {
+            box-shadow: 0 10px 40px rgba(139, 92, 246, 0.5);
+            border-color: rgba(99, 102, 241, 0.6);
+            transform: translateX(5px);
+        }
+
+        .step-number {
+            font-size: 3rem;
+            font-weight: bold;
+            background: var(--rainbow-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            min-width: 80px;
+            text-align: center;
+            filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.5));
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .step-content p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Quick Start */
+        .quick-start {
+            background: var(--bg-light);
+            position: relative;
+        }
+
+        .code-block {
+            background: #0a0a0a;
+            color: #ABB2BF;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
+        }
+
+        .code-block .comment {
+            color: #5C6370;
+        }
+
+        .code-block .keyword {
+            color: #C678DD;
+        }
+
+        .code-block .string {
+            color: #98C379;
+        }
+
+        /* Tech Stack */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+
+        .tech-item {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: var(--shadow);
+            transition: all 0.3s;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .tech-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 40px rgba(139, 92, 246, 0.5);
+            border-color: rgba(99, 102, 241, 0.6);
+        }
+
+        .tech-item h4 {
+            margin-top: 1rem;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            color: white;
+            padding: 3rem 2rem;
+            text-align: center;
+            border-top: 2px solid rgba(99, 102, 241, 0.3);
+            position: relative;
+        }
+
+        footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--rainbow-gradient);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: opacity 0.3s;
+        }
+
+        .footer-links a:hover {
+            opacity: 0.8;
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.2rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .workflow-step {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .step-number {
+                min-width: auto;
+            }
+        }
+
+        /* Preview Image */
+        .preview-container {
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Install Options */
+        .install-option-card {
+            transition: all 0.3s ease;
+        }
+
+        .install-option-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .install-option-card code {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">
+                <img src="../icon.png" alt="Vibe Video Icon" />
+                Vibe Video
+            </div>
+            <ul class="nav-links">
+                <li><a href="#features">特性</a></li>
+                <li><a href="#workflow">工作流</a></li>
+                <li><a href="#quickstart">快速开始</a></li>
+                <li><a href="#tech">技术栈</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div class="hero-content">
+            <img src="../icon.png" alt="Vibe Video" class="hero-icon" />
+            <h1>像写代码一样制作视频</h1>
+            <p class="subtitle">Create Videos Like Writing Code</p>
+            <p class="description">
+                Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频：<br>
+                用 Markdown 写剧本，用 AI 生成分镜，批量生成视频，一键合成。
+            </p>
+            <div class="cta-buttons">
+                <a href="#quickstart" class="btn btn-primary">
+                    🚀 开始使用
+                </a>
+                <a href="https://github.com/Cici2014/vibevideo" class="btn btn-secondary" target="_blank">
+                    ⭐ GitHub
+                </a>
+            </div>
+            <div class="badges">
+                <span class="badge">✅ 生产就绪</span>
+                <span class="badge">🚀 轻量级</span>
+                <span class="badge">🤖 AI 驱动</span>
+                <span class="badge">📝 Markdown</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">✨ 核心特性</h2>
+            <p class="section-subtitle">轻量级工作流，智能 AI 集成，可视化管理</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📝</div>
+                    <h3>Markdown 写剧本</h3>
+                    <p>用 Markdown 写剧本（任意格式），AI 自动生成完整项目结构。零学习成本，Git 友好。</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>智能 AI 集成</h3>
+                    <p>自动生成 `.cursorrules`，让 AI 理解项目结构。支持通义万相、Replicate、Google Gemini 等多种 AI Provider。</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>可视化管理</h3>
+                    <p>侧边栏展示项目资源，质量检查和友好建议，项目统计和进度追踪，右键菜单快速生成。</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎬</div>
+                    <h3>批量生成</h3>
+                    <p>批量生成主体图片、场景图片、首帧图片和视频片段。一次性完成所有生成任务，提升效率。</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>主体库和场景库</h3>
+                    <p>主体库确保角色外观一致，场景库创建可复用资源。支持多图合成，精确控制每个元素。</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🔄</div>
+                    <h3>快速迭代</h3>
+                    <p>编写 → 生成 → 审核 → 迭代。生成资源就像"编译"，人工审核就像"找 bug"。可反复优化直到满意。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="workflow" class="workflow">
+        <div class="container">
+            <h2 class="section-title">🎬 完整工作流</h2>
+            <p class="section-subtitle">像写代码一样：编写 → 生成 → 审核 → 迭代</p>
+            
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>📝 编写剧本</h3>
+                        <p>用 Markdown 写剧本，任意格式，完全自由。在 Cursor AI 中输入"根据剧本生成项目"，AI 自动提取主体、场景，拆分成 5秒/10秒 的分镜单元。</p>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>🤖 生成项目结构</h3>
+                        <p>AI 自动生成完整项目结构：提取主体保存到 `subjects/`，提取场景保存到 `scenes/`，拆分分镜保存到 `storyboards/`，生成首帧描述保存到 `first-frames/`。</p>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>🖼️ 生成图片资源</h3>
+                        <p>批量生成主体图片、场景图片和首帧图片。支持图生图合成，将主体和场景合成为首帧图片，确保角色外观一致。</p>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>🎬 生成视频片段</h3>
+                        <p>批量生成视频片段。支持文生视频、图生视频和首尾帧生视频。基于首帧生成，质量更稳定，可控性更强。</p>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>🎞️ 合成最终视频</h3>
+                        <p>使用 FFmpeg 将所有视频片段按顺序合成为最终视频。自动处理缺失片段，输出到 `output/final.mp4`。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="quickstart" class="quick-start">
+        <div class="container">
+            <h2 class="section-title">🚀 快速开始</h2>
+            <p class="section-subtitle">选择适合您的安装方式</p>
+            
+            <!-- 安装方式选择 -->
+            <div class="install-options" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin: 3rem 0;">
+                <div class="install-option-card" style="background: var(--bg-card); padding: 2.5rem; border-radius: 12px; box-shadow: var(--shadow); transition: all 0.3s; border: 3px solid rgba(99, 102, 241, 0.6); position: relative; overflow: hidden;">
+                    <div style="text-align: center; margin-bottom: 1.5rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">🎯</div>
+                        <div style="display: inline-block; background: var(--primary-color); color: white; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem;">推荐新手</div>
+                        <h3 style="font-size: 1.8rem; margin-bottom: 1rem; color: var(--text-primary);">一键安装</h3>
+                        <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem;">使用自动化脚本，一键安装 VibeVideo 和 Qwen Code Companion 扩展，无需手动操作。</p>
+                        <div style="background: rgba(99, 102, 241, 0.15); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid rgba(99, 102, 241, 0.6);">
+                            <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem; text-align: left;">🇨🇳 国内用户特别推荐</div>
+                            <p style="color: var(--text-secondary); line-height: 1.6; text-align: left; font-size: 0.95rem; margin-bottom: 0.8rem;">
+                                一键安装版本使用 <strong>Qwen Code Companion</strong>（阿里云通义千问 AI 编程助手），<br>
+                                ✅ 国内网络访问更稳定<br>
+                                ✅ 无需科学上网<br>
+                                ✅ 中文支持更友好<br>
+                                ✅ 响应速度更快
+                            </p>
+                            <div style="background: rgba(255, 193, 7, 0.15); padding: 0.8rem; border-radius: 6px; border-left: 3px solid #FFC107; margin-top: 0.8rem;">
+                                <div style="font-weight: 600; color: #F57C00; margin-bottom: 0.5rem; text-align: left; font-size: 0.9rem;">⚠️ 重要提示：Qwen Code Companion 是预览版本</div>
+                                <p style="color: var(--text-secondary); line-height: 1.6; text-align: left; font-size: 0.9rem; margin: 0;">
+                                    安装后需要手动启动：按 <code style="background: rgba(99, 102, 241, 0.2); padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.85rem; border: 1px solid rgba(99, 102, 241, 0.3);">Ctrl+Shift+P</code>（Mac: <code style="background: rgba(99, 102, 241, 0.2); padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.85rem; border: 1px solid rgba(99, 102, 241, 0.3);">Cmd+Shift+P</code>），<br>
+                                    然后运行命令：<strong style="color: var(--primary-color);">"Qwen Code: Run"</strong>
+                                </p>
+                            </div>
+                        </div>
+                        <ul style="text-align: left; color: var(--text-secondary); line-height: 2; margin-bottom: 2rem; padding-left: 1.5rem;">
+                            <li>✅ 双击运行即可</li>
+                            <li>✅ 自动检测 VS Code</li>
+                            <li>✅ 自动安装所需扩展</li>
+                            <li>✅ 适合不熟悉 VS Code 的用户</li>
+                        </ul>
+                        <a href="https://github.com/Cici2014/vibevideo/tree/master/install" class="btn btn-primary" target="_blank" style="width: 100%; text-align: center; display: block;">
+                            📥 下载一键安装脚本
+                        </a>
+                        <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                            <a href="https://github.com/Cici2014/vibevideo/blob/master/install/一键安装指南.md" target="_blank" style="color: var(--primary-color);">查看详细指南 →</a>
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="install-option-card" style="background: var(--bg-card); padding: 2.5rem; border-radius: 12px; box-shadow: var(--shadow); transition: all 0.3s; border: 3px solid rgba(99, 102, 241, 0.3);">
+                    <div style="text-align: center; margin-bottom: 1.5rem;">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">⚙️</div>
+                        <div style="display: inline-block; background: var(--text-secondary); color: white; padding: 0.3rem 1rem; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem;">专业用户</div>
+                        <h3 style="font-size: 1.8rem; margin-bottom: 1rem; color: var(--text-primary);">手动安装</h3>
+                        <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 1.5rem;">通过 VS Code 扩展市场手动安装，完全控制安装过程，适合熟悉 VS Code 的用户。</p>
+                        <ul style="text-align: left; color: var(--text-secondary); line-height: 2; margin-bottom: 2rem; padding-left: 1.5rem;">
+                            <li>✅ 完全控制安装过程</li>
+                            <li>✅ 可选择特定版本</li>
+                            <li>✅ 适合专业开发者</li>
+                            <li>✅ 可自定义配置</li>
+                        </ul>
+                        <a href="https://marketplace.visualstudio.com/items?itemName=fastpen.vibevideo" class="btn btn-secondary" target="_blank" style="width: 100%; text-align: center; display: block; background: var(--primary-color); color: white;">
+                            📦 在 VS Code 市场安装
+                        </a>
+                        <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-secondary);">
+                            或按 <code style="background: rgba(99, 102, 241, 0.2); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.3);">Ctrl+Shift+X</code> 搜索 "Vibe Video"
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 3rem 0; padding: 2rem; background: rgba(99, 102, 241, 0.15); border-radius: 12px; border-left: 4px solid rgba(99, 102, 241, 0.6);">
+                <h3 style="font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary);">💡 不知道选择哪个？</h3>
+                <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 1rem;">
+                    如果您是第一次使用 VS Code 或不熟悉扩展安装，<strong style="color: var(--primary-color);">强烈推荐使用一键安装脚本</strong>。
+                    如果您是经验丰富的开发者，可以选择手动安装以获得更多控制权。
+                </p>
+                <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px; margin-top: 1rem; text-align: left; border: 1px solid rgba(99, 102, 241, 0.3);">
+                    <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem;">🇨🇳 特别推荐国内用户使用一键安装版本：</div>
+                    <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 0.8rem; font-size: 0.95rem;">
+                        一键安装版本会自动安装 <strong>Qwen Code Companion</strong>（阿里云通义千问 AI 编程助手），
+                        相比其他 AI 扩展，对国内用户更友好：无需科学上网、网络访问更稳定、中文支持更完善、响应速度更快。
+                        这是国内用户的最佳选择！
+                    </p>
+                    <div style="background: rgba(255, 193, 7, 0.2); padding: 0.8rem; border-radius: 6px; border-left: 3px solid #FFC107;">
+                        <div style="font-weight: 600; color: #F57C00; margin-bottom: 0.4rem; font-size: 0.9rem;">⚠️ 使用提示：</div>
+                        <p style="color: var(--text-secondary); line-height: 1.6; margin: 0; font-size: 0.9rem;">
+                            Qwen Code Companion 是预览版本，安装后需要手动启动：<br>
+                            按 <code style="background: rgba(99, 102, 241, 0.2); padding: 0.2rem 0.4rem; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">Ctrl+Shift+P</code>（Mac: <code style="background: rgba(99, 102, 241, 0.2); padding: 0.2rem 0.4rem; border-radius: 3px; border: 1px solid rgba(99, 102, 241, 0.3);">Cmd+Shift+P</code>），<br>
+                            然后运行命令：<strong style="color: var(--primary-color);">"Qwen Code: Run"</strong>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <h3 class="section-title" style="font-size: 2rem; margin-top: 4rem; margin-bottom: 2rem;">📋 完整使用流程</h3>
+            
+            <div class="workflow-steps">
+                <div class="workflow-step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>安装扩展</h3>
+                        <p>选择上方的一键安装或手动安装方式完成扩展安装。</p>
+                        <div class="code-block">
+<span class="comment">// 方式一：一键安装（推荐新手，特别是国内用户）</span>
+<span class="comment">// 下载并运行 install-vscode-extensions.bat</span>
+<span class="comment">// 会自动安装 VibeVideo + Qwen Code Companion（国内用户友好）</span>
+
+<span class="comment">// 方式二：手动安装（专业用户 / Cursor 用户）</span>
+<span class="comment">// VS Code Marketplace</span>
+<a href="https://marketplace.visualstudio.com/items?itemName=fastpen.vibevideo" style="color: #61AFEF;" target="_blank">marketplace.visualstudio.com/items?itemName=fastpen.vibevideo</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>初始化项目</h3>
+                        <p>有两种方式可以初始化项目：</p>
+                        <div style="background: rgba(255, 193, 7, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #FFC107; margin: 1rem 0;">
+                            <div style="font-weight: 600; color: #F57C00; margin-bottom: 0.5rem;">⚠️ 使用一键安装版本的用户请注意：</div>
+                            <p style="color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem;">
+                                如果您使用一键安装版本，需要先启动 <strong>Qwen Code Companion</strong>（预览版本需要手动启动）：
+                            </p>
+                            <div class="code-block" style="margin: 0.5rem 0;">
+<span class="keyword">Ctrl+Shift+P</span>（Mac: <span class="keyword">Cmd+Shift+P</span>） → <span class="string">"Qwen Code: Run"</span>
+                            </div>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+                                启动后，再继续下面的初始化步骤。
+                            </p>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 1rem 0;">
+                            <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px; border-left: 3px solid rgba(99, 102, 241, 0.6);">
+                                <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem;">方式一：命令面板</div>
+                                <div class="code-block" style="margin: 0.5rem 0;">
+<span class="keyword">Ctrl+Shift+P</span> → <span class="string">"Vibe Video: Initialize Project"</span>
+                                </div>
+                            </div>
+                            <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px; border-left: 3px solid rgba(99, 102, 241, 0.6);">
+                                <div style="font-weight: 600; color: var(--primary-color); margin-bottom: 0.5rem;">方式二：视图面板（推荐）</div>
+                                <div class="code-block" style="margin: 0.5rem 0;">
+打开 View: <span class="string">"vibevideo"</span>
+点击 <span class="string">"初始化项目"</span> 按钮
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>编写剧本</h3>
+                        <p>编辑 `Script.md`，写下您的视频脚本。</p>
+                        <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #6366F1; margin: 1rem 0;">
+                            <div style="font-weight: 600; color: #6366F1; margin-bottom: 0.5rem;">🤖 AI 编程助手用户提示：</div>
+                            <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">如果您使用 Cursor、Qwen Code Companion 或其他 AI 编程助手，可以在 AI Chat 中直接输入以下命令，AI 会自动分析剧本并生成完整项目结构：</p>
+                            <div class="code-block" style="margin: 0.5rem 0;">
+<span class="string">"根据剧本.md 生成项目"</span>
+                            </div>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">✨ AI 会自动提取主体、场景，拆分成 5秒/10秒 的分镜单元，并生成完整的项目结构。</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h3>配置 API</h3>
+                        <p>配置视频 AI 服务（推荐通义万相）：</p>
+                        <div class="code-block">
+<span class="keyword">Ctrl+,</span> → 搜索 <span class="string">"vibevideo"</span>
+→ 选择 Provider（通义万相）
+→ 输入 DashScope API Key
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="workflow-step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h3>生成资源</h3>
+                        <p>使用侧边栏资源视图或命令批量生成：</p>
+                        <div class="code-block">
+<span class="comment">// 批量生成命令</span>
+<span class="string">"Vibe Video: Generate All Subjects"</span>    <span class="comment">// 生成主体</span>
+<span class="string">"Vibe Video: Generate All Scenes"</span>       <span class="comment">// 生成场景</span>
+<span class="string">"Vibe Video: Generate First Frames"</span>    <span class="comment">// 生成首帧</span>
+<span class="string">"Vibe Video: Generate All Videos"</span>        <span class="comment">// 生成视频</span>
+<span class="string">"Vibe Video: Compose Video"</span>            <span class="comment">// 合成视频</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="tech" class="tech">
+        <div class="container">
+            <h2 class="section-title">🛠️ 技术栈</h2>
+            <p class="section-subtitle">轻量级设计，最小化依赖</p>
+            
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div style="font-size: 3rem;">⚡</div>
+                    <h4>VS Code Extension</h4>
+                    <p>TypeScript 5.x</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div style="font-size: 3rem;">🤖</div>
+                    <h4>AI Providers</h4>
+                    <p>通义万相 / Replicate / Google Gemini</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div style="font-size: 3rem;">📝</div>
+                    <h4>Markdown</h4>
+                    <p>分镜脚本格式</p>
+                </div>
+                
+                <div class="tech-item">
+                    <div style="font-size: 3rem;">🎬</div>
+                    <h4>FFmpeg</h4>
+                    <p>视频合成（可选）</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <h3>Vibe Video</h3>
+            <p>像写代码一样制作视频</p>
+            <div class="footer-links">
+                <a href="https://github.com/Cici2014/vibevideo" target="_blank">GitHub</a>
+                <a href="https://marketplace.visualstudio.com/items?itemName=fastpen.vibevideo" target="_blank">VS Code Marketplace</a>
+                <a href="https://github.com/Cici2014/vibevideo/issues" target="_blank">Issues</a>
+            </div>
+            <p style="margin-top: 2rem; opacity: 0.8;">© 2024 Vibe Video. MIT License.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add scroll animation
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .workflow-step, .tech-item').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
+

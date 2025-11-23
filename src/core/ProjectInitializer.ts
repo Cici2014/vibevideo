@@ -108,6 +108,12 @@ export class ProjectInitializer {
       aiRulesContent
     );
 
+    // Qwen Code Companion
+    await writeFile(
+      path.join(rootPath, 'QWEN.md'),
+      aiRulesContent
+    );
+
     // .gitignore（添加敏感信息）
     const gitignorePath = path.join(rootPath, '.gitignore');
     const gitignoreExists = await fileExists(gitignorePath);

@@ -25,10 +25,32 @@ Vibe Video is a VS Code extension that lets you **create videos like writing cod
 
 ### Workflow
 
+**Text Flowchart:**
 ```
 Write Script → AI Generates Project Structure → Generate Images → Generate Videos → Compose Final Video → Complete
      ↑                                                                                                          ↓
      └────────────────────────────────── Review/Iterate ←─────────────────────────────────────────────────────┘
+```
+
+**Visual Flowchart:**
+```mermaid
+flowchart LR
+    A[📝 Write Script<br/>AI-assisted] --> B[🤖 Generate Project Structure<br/>Subjects/Scenes/Storyboards/First Frames]
+    B --> C[🖼️ Generate Image Resources<br/>Subjects/Scenes/First Frames]
+    C --> D[🎬 Generate Video Clips]
+    D --> E[🎞️ Compose Final Video]
+    E --> F[✅ Complete]
+    
+    B -.Review/Iterate.-> B
+    C -.Review/Iterate.-> C
+    D -.Review/Iterate.-> D
+    
+    style A fill:#e1f5ff
+    style B fill:#fff4e1
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
+    style E fill:#fff9c4
+    style F fill:#c8e6c9
 ```
 
 ---

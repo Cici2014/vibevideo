@@ -40,24 +40,18 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 
 Vibe Video's workflow is like writing code: **Write → Generate → Review → Iterate**.
 
-```mermaid
-flowchart LR
-    A[📝 Write Script<br/>AI-assisted] --> B[🤖 Generate Project Structure<br/>Subjects/Scenes/Storyboards/First Frames]
-    B --> C[🖼️ Generate Image Resources<br/>Subjects/Scenes/First Frames]
-    C --> D[🎬 Generate Video Clips]
-    D --> E[🎞️ Compose Final Video]
-    E --> F[✅ Complete]
-    
-    B -.Review/Iterate.-> B
-    C -.Review/Iterate.-> C
-    D -.Review/Iterate.-> D
-    
-    style A fill:#e1f5ff
-    style B fill:#fff4e1
-    style C fill:#e8f5e9
-    style D fill:#f3e5f5
-    style E fill:#fff9c4
-    style F fill:#c8e6c9
+```
+📝 Write Script (AI-assisted)
+    ↓
+🤖 Generate Project Structure (Subjects/Scenes/Storyboards/First Frames)
+    ↓  ↖ Review/Iterate
+🖼️ Generate Image Resources (Subjects/Scenes/First Frames)
+    ↓  ↖ Review/Iterate
+🎬 Generate Video Clips
+    ↓  ↖ Review/Iterate
+🎞️ Compose Final Video
+    ↓
+✅ Complete
 ```
 
 **Core Philosophy**: The entire process can be iterated repeatedly, just like coding. Generating resources is like "compiling", and manual review is like "finding bugs". If it doesn't pass, you can iterate multiple times until satisfied.
@@ -212,16 +206,20 @@ Vibe Video uses the following AI models for different generation tasks:
 | Task Type | Default Model | Description | Testing Status |
 |-----------|--------------|-------------|---------------|
 | **Text-to-Image** | `stability-ai/sdxl` | Generate images from text prompts | ❌ Not Tested |
+| **Image-to-Image** | - | Image editing feature | ❌ Not Supported |
 | **Text-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from text prompts | ❌ Not Tested |
 | **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images | ❌ Not Tested |
+| **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
 
 #### 🔷 Google Gemini - ⚠️ Not Tested
 
 | Task Type | Default Model | Description | Testing Status |
 |-----------|--------------|-------------|---------------|
 | **Text-to-Image** | `gemini-3-pro-image-preview` | Generate images from text prompts | ❌ Not Tested |
-| **Image-to-Video** | `veo-3` | Generate videos from initial frame images | ❌ Not Tested |
+| **Image-to-Image** | `gemini-2.5-flash-image` | Image editing feature | ❌ Not Tested |
 | **Text-to-Video** | `veo-3` | Generate videos from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `veo-3` | Generate videos from initial frame images | ❌ Not Tested |
+| **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
 
 **⚠️ Testing Status Notice**:
 
