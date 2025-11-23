@@ -200,6 +200,7 @@ Vibe Video uses the following AI models for different generation tasks:
 | **Text-to-Video** | `wan2.5-i2v-preview` | Generate videos directly from text prompts | ✅ Tested |
 | **Image-to-Video** | `wan2.5-i2v-preview` | Generate videos from initial frame images | ✅ Tested |
 | **First-Last Frame to Video** | `wan2.2-kf2v-flash` | Generate videos from first and last frame images (for precise control) | ✅ Tested |
+| **Image Editing** | `qwen-image-edit-plus` | Edit images using text prompts (change background, add elements, etc.) | ✅ Tested |
 
 #### 🌐 Replicate - ⚠️ Not Tested
 
@@ -312,10 +313,11 @@ MyVideoProject/
 - `Generate Scene` - Generate single scene image
 - `Generate Video` - Generate single video clip
 - `Generate Video From First Last Frame` - Generate video from first and last frames ⭐
+- `Edit Image` - Edit image using AI (change background, add elements, etc.) ⭐ New
 
 ## 🚧 Development Status
 
-Current Version: **0.0.6 (Alpha)**
+Current Version: **0.0.7 (Alpha)**
 
 ### ✅ Implemented
 - Project initialization (including subjects, scenes directories)
@@ -326,7 +328,8 @@ Current Version: **0.0.6 (Alpha)**
 - Video generation (image-to-video, based on first frames)
 - **First-last frame video generation** (using first frame + last frame) ⭐
 - Multi-image composition (subject + scene → first frame)
-- **Video composition** (FFmpeg-based video merging) ⭐ New
+- **Video composition** (FFmpeg-based video merging) ⭐
+- **Image editing** (AI-powered image editing using text prompts) ⭐ New
 - Quality checks
 - Sidebar resource view
 - **Multiple AI Provider support**:
