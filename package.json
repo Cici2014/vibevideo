@@ -2,7 +2,7 @@
   "name": "vibevideo",
   "displayName": "VibeVideo",
   "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
-  "version": "0.0.6",
+  "version": "0.0.8",
   "publisher": "fastpen",
   "engines": {
     "vscode": "^1.99.3"
@@ -143,6 +143,12 @@
         "title": "复制到下一帧",
         "category": "Vibe Video",
         "icon": "$(copy)"
+      },
+      {
+        "command": "vibevideo.extractLastFrameToNext",
+        "title": "提取最后一帧为下一分镜首帧",
+        "category": "Vibe Video",
+        "icon": "$(extract)"
       },
       {
         "command": "vibevideo.addReferenceImage",
@@ -367,6 +373,11 @@
           "group": "1_actions"
         },
         {
+          "command": "vibevideo.extractLastFrameToNext",
+          "when": "view == vvResources && viewItem == clip",
+          "group": "1_actions"
+        },
+        {
           "command": "vibevideo.renameResource",
           "when": "view == vvResources && viewItem == storyboard",
           "group": "1_actions"
@@ -494,6 +505,11 @@
         {
           "command": "vibevideo.revealInExplorer",
           "when": "view == vvResources && viewItem == clip",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.revealInExplorer",
+          "when": "view == vvResources && viewItem == outputVideo",
           "group": "1_actions"
         },
         {
