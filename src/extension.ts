@@ -21,6 +21,7 @@ import { generateAllSubjects, generateSingleSubjectCommand } from './commands/ge
 import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
 import { editImage } from './commands/editImage';
 import { composeAllVideos } from './commands/composeVideo';
+import { extractLastFrameToNext } from './commands/extractLastFrame';
 import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
@@ -443,6 +444,17 @@ export function activate(context: vscode.ExtensionContext) {
         '提示：如果视频没有声音，请使用系统默认播放器或其他播放器打开视频文件。',
         '知道了'
       );
+    }
+  );
+
+  const extractLastFrameToNextCommand = vscode.commands.registerCommand(
+    'vibevideo.extractLastFrameToNext',
+    async (item: ResourceTreeItem) => {
+      if (!resourceTreeProvider) {
+        vscode.window.showErrorMessage('ResourceTreeProvider 未初始化');
+        return;
+      }
+      await extractLastFrameToNext(item, context, resourceTreeProvider);
     }
   );
 
@@ -1283,6 +1295,7 @@ export function activate(context: vscode.ExtensionContext) {
     openFirstFrameResourceCommand,
     copyFirstFrameToNextCommand,
     openVideoClipCommand,
+    extractLastFrameToNextCommand,
     openSubjectResourceCommand,
     openSceneResourceCommand,
     addReferenceImageCommand,
