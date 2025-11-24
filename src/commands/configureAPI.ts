@@ -41,6 +41,16 @@ export async function configureVideoAI(
     message = `当前使用: ${providerDisplayName}\n\n请在设置面板中配置 Google API Key`;
     guideUrl = 'https://makersuite.google.com/app/apikey';
     guideText = '请在 Google AI Studio 获取 API Key，然后在设置中填入';
+  } else if (config.provider === 'sora') {
+    providerDisplayName = 'OpenAI Sora';
+    const soraConfig = await configManager.getSoraConfig();
+    if (soraConfig?.baseUrl) {
+      message = `当前使用: ${providerDisplayName} - 本地部署\n\n请在设置面板中配置 API Key 和部署地址`;
+    } else {
+      message = `当前使用: ${providerDisplayName} - 在线服务\n\n请在设置面板中配置 OpenAI API Key`;
+    }
+    guideUrl = 'https://platform.openai.com/api-keys';
+    guideText = '请在 OpenAI Platform 获取 API Key，然后在设置中填入\n\n如果使用本地部署，请填写本地 API 地址';
   } else {
     providerDisplayName = config.provider;
     message = `当前使用: ${providerDisplayName}\n\n请在设置面板中配置 API Key`;
@@ -138,6 +148,27 @@ export async function showCurrentConfig(configManager: ConfigManager): Promise<v
       details.push(`视频模型: ${videoModel}`);
       details.push(`支持功能: 文生图、图生视频、文生视频`);
     }
+  } else if (config.provider === 'sora') {
+    providerName = 'OpenAI Sora';
+    const soraConfig = await configManager.getSoraConfig();
+    if (soraConfig) {
+      // 判断是在线服务还是本地部署
+      if (soraConfig.baseUrl) {
+        serviceType = '🔧 本地部署';
+        details.push(`部署地址: ${soraConfig.baseUrl}`);
+      } else {
+        serviceType = '☁️ 在线服务 (OpenAI)';
+      }
+      details.push(`API Key: ${soraConfig.apiKey.substring(0, 8)}...`);
+      
+      // 显示使用的模型
+      const imageModel = soraConfig.imageModel || 'dall-e-3 (默认)';
+      const videoModel = soraConfig.videoModel || 'sora (默认)';
+      
+      details.push(`图像模型: ${imageModel}`);
+      details.push(`视频模型: ${videoModel}`);
+      details.push(`支持功能: 文生图、图生视频、文生视频`);
+    }
   } else {
     providerName = config.provider;
     serviceType = '未知';
@@ -169,6 +200,9 @@ export async function showCurrentConfig(configManager: ConfigManager): Promise<v
     } else if (config.provider === 'google') {
       message += `请在设置中配置 Google API Key\n`;
       message += `(搜索 "vibevideo.google.apiKey")`;
+    } else if (config.provider === 'sora') {
+      message += `请在设置中配置 OpenAI API Key\n`;
+      message += `(搜索 "vibevideo.sora.apiKey")`;
     } else {
       message += `请在设置中配置 API Key\n`;
       message += `(搜索 "vibevideo" 即可找到所有配置项)`;

@@ -80,7 +80,7 @@ export interface VideoAIProvider {
  */
 export interface ProviderConfig {
   /** Provider 类型 */
-  provider: 'tongyi-wanxiang' | 'replicate' | 'google';
+  provider: 'tongyi-wanxiang' | 'replicate' | 'google' | 'sora';
   /** 是否已配置 */
   configured: boolean;
 }
@@ -123,5 +123,19 @@ export interface GoogleConfig {
   projectId?: string;
   /** Vertex AI 位置（可选，默认使用 us-central1） */
   location?: string;
+}
+
+/**
+ * Sora 配置（OpenAI Sora）
+ */
+export interface SoraConfig {
+  /** OpenAI API Key（访问 https://platform.openai.com/api-keys 获取） */
+  apiKey: string;
+  /** 自定义 API 基础 URL（可选，默认使用 https://api.openai.com/v1） */
+  baseUrl?: string;
+  /** 视频生成模型（可选，默认使用 sora） */
+  videoModel?: string;
+  /** 图像生成模型（可选，默认使用 dall-e-3，用于文生图） */
+  imageModel?: string;
 }
 

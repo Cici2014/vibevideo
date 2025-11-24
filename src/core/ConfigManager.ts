@@ -3,7 +3,7 @@
  */
 
 import * as vscode from 'vscode';
-import { ProviderConfig, TongyiConfig, ReplicateConfig, GoogleConfig } from '../providers/types';
+import { ProviderConfig, TongyiConfig, ReplicateConfig, GoogleConfig, SoraConfig } from '../providers/types';
 
 export class ConfigManager {
   private context: vscode.ExtensionContext;
@@ -24,7 +24,7 @@ export class ConfigManager {
    */
   async getProviderConfig(): Promise<ProviderConfig> {
     const config = this.getConfig();
-    const provider = config.get<'tongyi-wanxiang' | 'replicate' | 'google'>('provider', 'tongyi-wanxiang');
+    const provider = config.get<'tongyi-wanxiang' | 'replicate' | 'google' | 'sora'>('provider', 'tongyi-wanxiang');
     const configured = await this.isProviderConfigured(provider);
 
     return {
@@ -48,6 +48,17 @@ export class ConfigManager {
     if (provider === 'google') {
       const config = await this.getGoogleConfig();
       return !!(config?.apiKey);
+    }
+    if (provider === 'sora') {
+      const config = this.getConfig();
+      const apiKey = config.get<string>('sora.apiKey', '');
+      const baseUrl = config.get<string>('sora.baseUrl', '');
+      // 对于本地部署（设置了 baseUrl），允许 apiKey 为空
+      // 对于在线服务（未设置 baseUrl），必须有 apiKey
+      if (baseUrl && baseUrl.trim()) {
+        return true; // 本地部署只要有 baseUrl 即可
+      }
+      return !!(apiKey && apiKey.trim()); // 在线服务必须有 apiKey
     }
     return false;
   }
@@ -117,6 +128,41 @@ export class ConfigManager {
       projectId: projectId || undefined,
       location: location || undefined
     };
+  }
+
+  /**
+   * 获取 Sora 配置
+   */
+  async getSoraConfig(): Promise<SoraConfig | undefined> {
+    const config = this.getConfig();
+    
+    const apiKey = config.get<string>('sora.apiKey', '');
+    const baseUrl = config.get<string>('sora.baseUrl', '');
+    const videoModel = config.get<string>('sora.videoModel', '');
+    const imageModel = config.get<string>('sora.imageModel', '');
+
+    // 对于本地部署（设置了 baseUrl），允许 apiKey 为空，使用占位符
+    // 对于在线服务（未设置 baseUrl），必须有 apiKey
+    if (baseUrl && baseUrl.trim()) {
+      // 本地部署：即使 apiKey 为空也返回配置，使用占位符
+      return {
+        apiKey: apiKey || 'local-deployment-placeholder', // 本地部署可以使用占位符
+        baseUrl: baseUrl,
+        videoModel: videoModel || undefined,
+        imageModel: imageModel || undefined
+      };
+    } else {
+      // 在线服务：必须有 apiKey
+      if (!apiKey || !apiKey.trim()) {
+        return undefined;
+      }
+      return {
+        apiKey,
+        baseUrl: undefined,
+        videoModel: videoModel || undefined,
+        imageModel: imageModel || undefined
+      };
+    }
   }
 
   /**

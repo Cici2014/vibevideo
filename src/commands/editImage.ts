@@ -132,14 +132,21 @@ export async function editImage(
           counter++;
         }
 
-        // 下载图片
-        const response = await fetch(imageUrl);
-        if (!response.ok) {
-          throw new Error(`下载图片失败: ${response.statusText}`);
-        }
+        // 下载或复制图片
+        // 如果返回的是 file:// URL，直接复制文件
+        if (imageUrl.startsWith('file://')) {
+          const sourcePath = imageUrl.replace('file://', '');
+          await fs.promises.copyFile(sourcePath, newPath);
+        } else {
+          // 如果是 HTTP URL，使用 fetch 下载
+          const response = await fetch(imageUrl);
+          if (!response.ok) {
+            throw new Error(`下载图片失败: ${response.statusText}`);
+          }
 
-        const buffer = await response.arrayBuffer();
-        await fs.promises.writeFile(newPath, Buffer.from(buffer));
+          const buffer = await response.arrayBuffer();
+          await fs.promises.writeFile(newPath, Buffer.from(buffer));
+        }
 
         progress.report({ message: '完成！' });
 

@@ -653,12 +653,14 @@
           "enum": [
             "tongyi-wanxiang",
             "replicate",
-            "google"
+            "google",
+            "sora"
           ],
           "enumDescriptions": [
             "通义万相 - 国内服务，中文支持优秀，支持图生视频",
             "Replicate - 国际服务，支持多种开源模型，图生视频和文生视频",
-            "Google Gemini - Google 服务，支持 gemini-3-pro-image-preview 生图和视频生成"
+            "Google Gemini - Google 服务，支持 gemini-3-pro-image-preview 生图和视频生成",
+            "OpenAI Sora - OpenAI 服务，支持文生视频和图生视频"
           ],
           "description": "视频 AI 服务商",
           "order": 1
@@ -773,33 +775,61 @@
           "markdownDescription": "Vertex AI 位置（仅适用于 Google provider）\n\n如果使用 Vertex AI，请指定区域。\n\n默认值：`us-central1`",
           "order": 19
         },
+        "vibevideo.sora.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI API Key（仅适用于 Sora provider，访问 https://platform.openai.com/api-keys 获取）",
+          "markdownDescription": "OpenAI API Key（仅适用于 Sora provider）\n\n[点击获取 API Key](https://platform.openai.com/api-keys)\n\n参考：[OpenAI Video API 文档](https://platform.openai.com/docs/api-reference/videos)",
+          "order": 20
+        },
+        "vibevideo.sora.baseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "自定义 API 基础 URL（仅适用于 Sora provider，可选，留空使用默认 https://api.openai.com/v1，用于本地部署模型）",
+          "markdownDescription": "自定义 API 基础 URL（仅适用于 Sora provider）\n\n用于本地部署 Sora 模型，留空则使用 OpenAI 官方服务。\n\n示例：\n- `http://localhost:8000/v1` - 本地部署\n- `https://api.openai.com/v1` - OpenAI 官方服务（默认）",
+          "order": 21
+        },
+        "vibevideo.sora.videoModel": {
+          "type": "string",
+          "default": "",
+          "description": "Sora 视频生成模型（仅适用于 Sora provider，可选，留空使用默认 sora）",
+          "markdownDescription": "Sora 视频生成模型（仅适用于 Sora provider）\n\n留空则使用默认模型 `sora`。\n\n参考：[OpenAI Video API 文档](https://platform.openai.com/docs/api-reference/videos)",
+          "order": 22
+        },
+        "vibevideo.sora.imageModel": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI 图像生成模型（仅适用于 Sora provider，可选，留空使用默认 dall-e-3）",
+          "markdownDescription": "OpenAI 图像生成模型（仅适用于 Sora provider）\n\n留空则使用默认模型 `dall-e-3`。\n\n支持的模型：\n- `dall-e-3` - 图像生成（默认）\n- `dall-e-2` - 图像生成（旧版）\n\n参考：[OpenAI API 文档](https://platform.openai.com/docs)",
+          "order": 23
+        },
         "vibevideo.image.size": {
           "type": "string",
           "default": "1280*720",
           "description": "图片尺寸（统一设置，格式：宽度*高度，例如：1280*720）",
           "markdownDescription": "图片尺寸（统一设置）⭐ 推荐\n\n统一设置所有图片生成的尺寸，包括主体图片、场景图片和首帧图片。\n\n格式：`宽度*高度`\n\n示例：\n- `1280*720`（16:9 高清）\n- `1920*1080`（16:9 全高清）\n- `1024*1024`（1:1 正方形）\n\n如果设置了此项，将自动应用到所有图片生成。如需单独设置特定类型图片尺寸，可以使用下方的高级选项。",
-          "order": 20
+          "order": 24
         },
         "vibevideo.image.subjectSize": {
           "type": "string",
           "default": "",
           "description": "主体图片尺寸（可选，留空则使用统一图片尺寸）",
           "markdownDescription": "主体图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1024*1024`（1:1）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为主体图片单独设置不同尺寸时使用。",
-          "order": 21
+          "order": 25
         },
         "vibevideo.image.sceneSize": {
           "type": "string",
           "default": "",
           "description": "场景图片尺寸（可选，留空则使用统一图片尺寸）",
           "markdownDescription": "场景图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为场景图片单独设置不同尺寸时使用。",
-          "order": 22
+          "order": 26
         },
         "vibevideo.image.firstFrameSize": {
           "type": "string",
           "default": "",
           "description": "分镜首帧图片尺寸（可选，留空则使用统一图片尺寸）",
           "markdownDescription": "分镜首帧图片尺寸（高级选项，可选）\n\n格式：`宽度*高度`\n\n示例：`1280*720`（16:9）、`1920*1080`（16:9 全高清）\n\n**注意**：如果不设置（留空），将自动使用上方「图片尺寸」的统一配置。\n\n仅在需要为首帧图片单独设置不同尺寸时使用。",
-          "order": 23
+          "order": 27
         },
         "vibevideo.image.numOutputs": {
           "type": "number",
@@ -808,7 +838,7 @@
           "maximum": 10,
           "description": "文生图/图生图一次生成的图片数量（n 参数）",
           "markdownDescription": "文生图/图生图一次生成的图片数量\n\n设置每次调用文生图或图生图接口时生成的图片数量。\n\n- 值越大，生成的图片越多，但消耗的 API 额度也越多\n- 建议值：1-3 张\n- 当生成多张图片时，第一张使用原文件名，其余添加 `.o-1`, `.o-2` 等后缀",
-          "order": 24
+          "order": 28
         }
       }
     }

@@ -7,6 +7,7 @@ import { VideoAIProvider } from './types';
 import { TongyiWanxiangProvider } from './TongyiWanxiangProvider';
 import { ReplicateProvider } from './ReplicateProvider';
 import { GoogleProvider } from './GoogleProvider';
+import { SoraProvider } from './SoraProvider';
 import { ConfigManager } from '../core/ConfigManager';
 
 export class ProviderManager {
@@ -49,6 +50,12 @@ export class ProviderManager {
         throw new Error('Google 配置不完整');
       }
       this.currentProvider = new GoogleProvider(googleConfig);
+    } else if (config.provider === 'sora') {
+      const soraConfig = await this.configManager.getSoraConfig();
+      if (!soraConfig) {
+        throw new Error('Sora 配置不完整');
+      }
+      this.currentProvider = new SoraProvider(soraConfig);
     } else {
       throw new Error(`不支持的 Provider: ${config.provider}`);
     }
