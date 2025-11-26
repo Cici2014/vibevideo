@@ -366,13 +366,117 @@ Vibe Video 扩展的所有重要变更都会记录在这个文件中。
 
 ---
 
+## [0.0.9] - 2025-01-23
+
+### ✅ 新增功能
+
+#### OpenAI Sora Provider 完整支持 ⭐
+- 完整实现 OpenAI Sora Provider 集成
+- 支持文生图（使用 `gpt-image-1` 或 `dall-e-3` 模型）
+- 支持图片编辑（使用 `gpt-image-1` 模型，支持多图合成）
+- 支持图生视频（使用 `sora-2` 模型）
+- 支持文生视频（使用 `sora-2` 模型）
+- 支持视频状态查询和资源下载
+- 支持自定义 API 基础 URL（可用于本地部署）
+- 完整的配置项支持（API Key、模型选择、自定义 URL）
+- ⚠️ **注意**：此功能已实现但尚未进行实际 API 测试
+
+### 📊 技术细节
+
+- 更新文件：`src/providers/SoraProvider.ts`（完整实现，约 731 行）
+- 更新文件：`src/providers/types.ts`（添加 SoraConfig 类型定义）
+- 更新文件：`src/providers/ProviderManager.ts`（集成 Sora Provider）
+- 更新文件：`package.json`（添加 Sora 相关配置项）
+
+### 🎯 使用场景
+
+Sora Provider 特别适用于：
+- 需要高质量视频生成的用户
+- 需要使用 OpenAI Sora 模型的用户
+- 需要本地部署 Sora 模型的用户
+
+---
+
+## [0.0.10] - 2025-01-24
+
+### ✅ 新增功能
+
+#### 视频长宽比配置 ⭐
+- 新增 `vibevideo.video.aspectRatio` 配置项
+- 支持 5 种长宽比：16:9（横屏）、4:3（横屏）、1:1（正方形）、3:4（竖屏）、9:16（竖屏）
+- 长宽比与分辨率配置结合使用，自动选择最合适的视频尺寸
+- 在 `ConfigManager` 中添加 `getAspectRatio()` 方法
+- 更新所有视频生成命令，传递长宽比参数
+
+#### Sora Provider 增强 ⭐
+- **多图合成接口**：为 SoraProvider 添加 `composeMultipleImages` 方法
+  - 创建 `SoraProviderClient` 类，提供多图合成功能
+  - 使用 Sora 的 `editImage` API 实现多图合成
+  - 支持主体+场景合成、主体合成、场景合成等场景
+- **图片尺寸映射优化**：改进图片尺寸映射算法
+  - 根据配置的图片尺寸（如 `1280*720`）智能映射到 Sora 支持的三个固定尺寸
+  - 使用长宽比差异计算，选择最接近的尺寸
+  - 添加详细的映射日志，便于调试
+- **视频尺寸选择优化**：根据分辨率和长宽比自动选择最合适的视频尺寸
+  - `1080P + 16:9` → `1792x1024`（横屏高分辨率）
+  - `1080P + 9:16` → `1024x1792`（竖屏高分辨率）
+  - `720P + 16:9` → `1280x720`（横屏标准分辨率）
+  - `720P + 9:16` → `720x1280`（竖屏标准分辨率）
+
+#### 本地文件路径支持
+- 更新所有图片生成命令，支持处理本地文件路径返回值
+- `generateFirstFrames.ts`：支持 URL、本地文件路径和 taskId
+- `generateVideos.ts`：添加 `handleComposeResult` 辅助函数，统一处理返回值
+- `generateSubjects.ts`：支持本地文件路径
+- `generateScenes.ts`：支持本地文件路径
+- 当 API 返回本地文件路径时，自动复制文件而不是下载
+
+### 🐛 问题修复
+
+#### Sora Provider 图片尺寸问题
+- 修复 SoraProvider 图片尺寸映射不准确的问题
+- 优化映射算法，确保 `1280*720`（16:9）正确映射到 `1792x1024`（16:9 横屏）
+- 添加映射日志，便于排查问题
+
+#### 视频竖屏问题
+- 修复使用 Sora Provider 时，即使设置了 `1280*720` 也会生成竖屏视频的问题
+- 通过添加长宽比配置，确保视频方向正确
+- 修复默认值问题：当解析失败时不再回退到竖屏默认值
+
+### 📊 技术细节
+
+- 更新文件：`src/providers/SoraProvider.ts`（添加 SoraProviderClient 和多图合成支持）
+- 更新文件：`src/providers/types.ts`（添加 `aspectRatio` 字段到 VideoOptions）
+- 更新文件：`src/core/ConfigManager.ts`（添加 `getAspectRatio()` 方法）
+- 更新文件：`src/commands/generateVideos.ts`（传递长宽比参数，支持本地文件路径）
+- 更新文件：`src/commands/generateVideoFromFirstLastFrame.ts`（传递长宽比参数）
+- 更新文件：`src/commands/generateFirstFrames.ts`（支持本地文件路径）
+- 更新文件：`src/commands/generateSubjects.ts`（支持本地文件路径）
+- 更新文件：`src/commands/generateScenes.ts`（支持本地文件路径）
+- 更新文件：`package.json`（添加 `vibevideo.video.aspectRatio` 配置项）
+- 更新文件：`DOC/tutorial.md` 和 `DOC/tutorial_EN.md`（添加配置说明和常见问题）
+
+### 🎯 使用场景
+
+视频长宽比配置特别适用于：
+- 需要生成横屏视频（16:9）的场景
+- 需要生成竖屏视频（9:16）的场景
+- 需要精确控制视频方向的场景
+
+Sora Provider 多图合成功能特别适用于：
+- 使用主体和场景图片合成首帧
+- 使用多个主体图片合成场景
+- 需要多图融合的场景
+
+### ⚠️ 注意事项
+
+- Sora 的图片生成 API 只支持三个固定尺寸（`1024x1024`、`1792x1024`、`1024x1792`）
+- 系统会根据配置的图片尺寸自动映射到最接近的 Sora 支持尺寸
+- 如果使用的 API 服务不支持某些尺寸，可能会返回不同的尺寸（这是 API 服务端的限制）
+
+---
+
 ## [Unreleased]
-
-### ⚠️ 功能状态说明
-
-#### OpenAI Sora Provider
-- **状态**：已实现但未测试
-- **说明**：Sora Provider 已实现完整功能（文生图、图生视频、文生视频、图片编辑），此功能尚未进行实际测试
 
 ### 计划功能
 

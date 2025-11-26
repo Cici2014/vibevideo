@@ -256,11 +256,19 @@ async function generateSingleScene(
     // 调用多图合成 API
     const resultUrl = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, numOutputs);
     
-    // 多图合成 API 可能返回 URL 或 taskId
+    // 多图合成 API 可能返回 URL、本地文件路径或 taskId
     if (resultUrl && (resultUrl.startsWith('http://') || resultUrl.startsWith('https://'))) {
       // 直接是 URL，直接下载
       console.log(`[场景] 直接下载: ${resultUrl}`);
       await provider.client.downloadResource(resultUrl, scene.imagePath);
+      console.log(`✓ 场景生成完成: ${scene.id}`);
+      return;
+    } else if (resultUrl && (path.isAbsolute(resultUrl) || resultUrl.startsWith('./') || resultUrl.startsWith('../'))) {
+      // 本地文件路径：直接复制文件
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const sourcePath = path.isAbsolute(resultUrl) ? resultUrl : (workspaceRoot ? path.join(workspaceRoot, resultUrl) : resultUrl);
+      await fs.promises.copyFile(sourcePath, scene.imagePath);
+      console.log(`[场景] 已复制本地文件: ${sourcePath} → ${scene.imagePath}`);
       console.log(`✓ 场景生成完成: ${scene.id}`);
       return;
     } else {

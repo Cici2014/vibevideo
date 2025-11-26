@@ -732,11 +732,16 @@ async function generateSingleFirstFrame(
   // 使用与首帧描述文件相同的命名规则：${storyboardId}-first-frame.png
   const savePath = path.join(workspaceRoot, 'first-frames', `${storyboard.id}-first-frame.png`);
   
-  if (result.startsWith('http')) {
+  if (result.startsWith('http://') || result.startsWith('https://')) {
     // 同步模式：直接返回图片 URL
     await provider.client.downloadResource(result, savePath);
+  } else if (path.isAbsolute(result) || result.startsWith('./') || result.startsWith('../')) {
+    // 本地文件路径：直接复制文件
+    const sourcePath = path.isAbsolute(result) ? result : path.join(workspaceRoot, result);
+    await fs.promises.copyFile(sourcePath, savePath);
+    console.log(`[首帧生成] 已复制本地文件: ${sourcePath} → ${savePath}`);
   } else {
-    // 异步模式：需要轮询
+    // 异步模式：需要轮询（taskId）
     await pollTaskStatus(provider, result);
     await provider.downloadResource(result, savePath);
   }

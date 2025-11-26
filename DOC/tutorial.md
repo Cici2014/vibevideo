@@ -66,13 +66,19 @@ flowchart LR
 Vibe Video 需要配置 AI 服务商的 API Key：
 
 1. **获取 API Key**
-   - 通义万相（推荐）：访问 [DashScope 控制台](https://bailian.console.aliyun.com/)
+   - **通义万相（首推推荐）**：访问 [DashScope 控制台](https://bailian.console.aliyun.com/)
+     - ✅ **优势**：限制较少，功能完整，适合大多数使用场景
+     - ✅ **支持**：真实人物、版权角色、多种尺寸配置
+   - OpenAI Sora：访问 [OpenAI Platform](https://platform.openai.com/api-keys)
+     - ⚠️ **注意**：存在较多使用限制（详见下方"常见问题"）
    - Replicate：访问 [Replicate 官网](https://replicate.com/)
    - Google Gemini：访问 [Google AI Studio](https://makersuite.google.com/app/apikey)
 
 2. **配置方式**
    - `Ctrl+,` → 搜索 `vibevideo` → 设置 Provider 和 API Key
    - 或 `Ctrl+Shift+P` → `Vibe Video: Configure Video AI`
+
+> 💡 **推荐**：首次使用建议选择**通义万相**，因为它限制更少、功能更完整。Sora 虽然功能强大，但在内容生成和用户权限上有较多限制。
 
 ### 3. 创建项目
 
@@ -242,12 +248,49 @@ MyVideoProject/
 - 修改配置：`Ctrl+,` → 搜索 `vibevideo`
 
 主要配置项：
-- `vibevideo.provider`：AI 服务商（默认：`tongyi-wanxiang`）
-  - 选项：`tongyi-wanxiang`、`replicate`、`google`
+- `vibevideo.provider`：AI 服务商（默认：`tongyi-wanxiang`，**推荐**）
+  - 选项：`tongyi-wanxiang`（首推）、`sora`（有较多限制，详见常见问题）、`replicate`、`google`
 - `vibevideo.dashscope.apiKey`：DashScope API Key（用于通义万相）
+- `vibevideo.sora.apiKey`：OpenAI API Key（用于 OpenAI Sora）
+- `vibevideo.sora.baseUrl`：OpenAI API 基础 URL（可选，默认：`https://api.openai.com/v1`）
 - `vibevideo.replicate.apiKey`：Replicate API Token（用于 Replicate）
 - `vibevideo.google.apiKey`：Google API Key（用于 Google Gemini）
 - `vibevideo.video.resolution`：视频分辨率（默认：`720P`）
+  - 选项：`480P`、`720P`、`1080P`
+- `vibevideo.video.aspectRatio`：视频长宽比（默认：`16:9`）
+  - 选项：`16:9`（横屏）、`4:3`（横屏）、`1:1`（正方形）、`3:4`（竖屏）、`9:16`（竖屏）
+  - **注意**：长宽比会与分辨率结合使用，确定最终的视频尺寸
+- `vibevideo.image.size`：图片尺寸（统一设置，默认：`1280*720`）
+  - 格式：`宽度*高度`，例如：`1280*720`、`1920*1080`、`1024*1024`
+  - 适用于所有图片生成（主体、场景、首帧）
+- `vibevideo.image.subjectSize`：主体图片尺寸（可选，留空则使用统一图片尺寸）
+- `vibevideo.image.sceneSize`：场景图片尺寸（可选，留空则使用统一图片尺寸）
+- `vibevideo.image.firstFrameSize`：首帧图片尺寸（可选，留空则使用统一图片尺寸）
+
+**注意**：不同 Provider 的图片生成会使用不同的 API 服务：
+- **通义万相**：图片生成使用通义千问 API（`wan2.5-t2i-preview`、`qwen-image-edit-plus`）
+  - 支持任意尺寸配置（如 `1280*720`、`1920*1080`）
+- **OpenAI Sora**：图片生成使用 OpenAI API（`gpt-image-1` 或 `dall-e-3`）
+  - **图片尺寸限制**：Sora 只支持三个固定尺寸
+    - `1024x1024`（1:1 正方形）
+    - `1792x1024`（16:9 横屏）
+    - `1024x1792`（9:16 竖屏）
+  - **自动映射**：系统会根据您配置的图片尺寸（如 `1280*720`）自动映射到最接近的 Sora 支持尺寸
+    - `1280*720`（16:9）→ `1792x1024`（16:9 横屏）
+    - `720*1280`（9:16）→ `1024x1792`（9:16 竖屏）
+    - `1024*1024`（1:1）→ `1024x1024`（1:1 正方形）
+  - **视频尺寸**：Sora 视频生成支持以下尺寸
+    - `720x1280`（9:16 竖屏）
+    - `1280x720`（16:9 横屏）
+    - `1024x1792`（9:16 竖屏高分辨率）
+    - `1792x1024`（16:9 横屏高分辨率）
+  - **视频尺寸选择**：系统会根据您配置的分辨率（如 `1080P`）和长宽比（如 `16:9`）自动选择最合适的视频尺寸
+    - `1080P + 16:9` → `1792x1024`（横屏高分辨率）
+    - `1080P + 9:16` → `1024x1792`（竖屏高分辨率）
+    - `720P + 16:9` → `1280x720`（横屏标准分辨率）
+    - `720P + 9:16` → `720x1280`（竖屏标准分辨率）
+- **Replicate**：使用 Replicate 平台的图片生成模型
+- **Google Gemini**：使用 Google Gemini 图片生成模型
 
 ---
 
@@ -266,13 +309,54 @@ A: 在分镜脚本中使用相对路径：`- **参考图**: ref-img/product.jpg`
 A: 检查 API Key、网络连接、API 额度，查看 VS Code 输出面板的错误信息。
 
 **Q: 可以使用本地部署的模型吗？**  
-A: 可以。配置 `vibevideo.dashscope.baseUrl` 为本地服务地址。
+A: 可以。配置 `vibevideo.dashscope.baseUrl` 或 `vibevideo.sora.baseUrl` 为本地服务地址。
 
 **Q: 如何将所有视频片段合成为最终视频？**  
 A: 使用 `Vibe Video: Compose Video` 命令。需要 FFmpeg - 扩展会在需要时引导您安装。
 
 **Q: 如果 FFmpeg 未安装怎么办？**  
 A: 扩展会自动检测 FFmpeg 并引导您安装。您可以从系统 PATH 安装 FFmpeg 或通过 npm 包安装。
+
+**Q: 使用 Sora Provider 时，为什么图片尺寸和配置的不一样？**  
+A: Sora 的图片生成 API 只支持三个固定尺寸（`1024x1024`、`1792x1024`、`1024x1792`）。系统会根据您配置的图片尺寸（如 `1280*720`）自动映射到最接近的 Sora 支持尺寸，保持长宽比一致。例如：
+- 配置 `1280*720`（16:9）→ 映射到 `1792x1024`（16:9 横屏）
+- 配置 `720*1280`（9:16）→ 映射到 `1024x1792`（9:16 竖屏）
+
+**Q: 使用 Sora Provider 时，如何设置视频的横屏/竖屏？**  
+A: 通过配置 `vibevideo.video.aspectRatio` 来设置：
+- `16:9` 或 `4:3` → 横屏视频
+- `9:16` 或 `3:4` → 竖屏视频
+- `1:1` → 正方形视频
+
+系统会根据您配置的分辨率（如 `1080P`）和长宽比（如 `16:9`）自动选择最合适的视频尺寸。
+
+**Q: 图片尺寸配置和视频长宽比配置有什么区别？**  
+A: 
+- **图片尺寸配置**（`vibevideo.image.size`）：用于生成图片资源（主体、场景、首帧），格式为 `宽度*高度`（如 `1280*720`）
+- **视频长宽比配置**（`vibevideo.video.aspectRatio`）：用于生成视频，格式为比例（如 `16:9`），会与分辨率配置结合使用
+
+两者可以独立配置，例如：图片使用 `1280*720`，视频使用 `1080P + 16:9`。
+
+**Q: 为什么推荐使用通义万相而不是 Sora？**  
+A: 通义万相在使用限制上更宽松，功能更完整。Sora 虽然功能强大，但存在以下限制：
+
+⚠️ **Sora 的内容与使用限制**：
+
+1. **人物与肖像限制**
+   - 不支持使用包含**真实人物的图像**来生成视频
+   - 出于肖像权和防止虚假信息滥用的考虑
+   - 对于历史人物，OpenAI 会应遗产管理方的请求采取限制措施（例如已暂停生成马丁·路德·金形象视频的功能）
+
+2. **版权内容管控**
+   - 针对知名版权内容（如迪士尼、宝可梦等），Sora 的版权政策已从宽松的"默认允许"调整为更严格的"主动同意（Opt-in）"模式
+   - 除非版权方明确授权，否则模型会**拒绝生成相关角色**
+
+3. **用户资格与内容安全**
+   - 仅对**18岁及以上的用户**开放
+   - 禁止生成非法、暴力、色情或仇恨等有害内容
+   - 设有自动审核机制
+
+**建议**：如果您需要生成包含真实人物、知名版权角色，或需要更大的创作自由度，强烈推荐使用**通义万相**。
 
 ---
 

@@ -104,3 +104,95 @@ export async function deleteFile(filePath: string): Promise<void> {
   await fs.promises.unlink(filePath);
 }
 
+/**
+ * 生成唯一的文件名（如果文件已存在，添加 - 副本 后缀）
+ * 例如：name.png -> name - 副本.png（如果 name.png 已存在）
+ *      name - 副本.png -> name - 副本 (2).png（如果 name - 副本.png 已存在）
+ */
+export async function generateUniqueFileName(targetDir: string, fileName: string): Promise<string> {
+  const ext = path.extname(fileName);
+  const nameWithoutExt = path.basename(fileName, ext);
+  const targetPath = path.join(targetDir, fileName);
+
+  // 如果文件不存在，直接返回原文件名
+  if (!(await fileExists(targetPath))) {
+    return fileName;
+  }
+
+  // 检查是否是 "name - 副本" 或 "name - 副本 (n)" 格式
+  const copyPattern = /^(.+) - 副本(?: \((\d+)\))?$/;
+  const match = nameWithoutExt.match(copyPattern);
+
+  if (match) {
+    // 源文件名已经是副本格式，需要生成新的副本
+    const baseName = match[1];
+    // 查找目标目录中已有的最大副本编号
+    const files = await fs.promises.readdir(targetDir);
+    let maxNum = 0;
+    const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedExt = ext.replace('.', '\\.');
+    const pattern = new RegExp(`^${escapedBaseName} - 副本(?: \\((\\d+)\\))?${escapedExt}$`);
+    
+    for (const file of files) {
+      const fileMatch = file.match(pattern);
+      if (fileMatch) {
+        const num = fileMatch[1] ? parseInt(fileMatch[1], 10) : 1;
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+
+    // 生成新的副本编号
+    let nextNum = maxNum + 1;
+    let newFileName = `${baseName} - 副本 (${nextNum})${ext}`;
+    let newPath = path.join(targetDir, newFileName);
+
+    // 如果新文件名已存在，继续递增
+    while (await fileExists(newPath)) {
+      nextNum++;
+      newFileName = `${baseName} - 副本 (${nextNum})${ext}`;
+      newPath = path.join(targetDir, newFileName);
+    }
+
+    return newFileName;
+  } else {
+    // 不是副本格式，添加 " - 副本" 后缀
+    let newFileName = `${nameWithoutExt} - 副本${ext}`;
+    let newPath = path.join(targetDir, newFileName);
+
+    // 如果 " - 副本" 格式已存在，添加数字
+    if (await fileExists(newPath)) {
+      // 查找目标目录中已有的最大副本编号
+      const files = await fs.promises.readdir(targetDir);
+      let maxNum = 1; // 已经有 " - 副本" 了，所以从 2 开始
+      const escapedName = nameWithoutExt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedExt = ext.replace('.', '\\.');
+      const pattern = new RegExp(`^${escapedName} - 副本(?: \\((\\d+)\\))?${escapedExt}$`);
+      
+      for (const file of files) {
+        const fileMatch = file.match(pattern);
+        if (fileMatch) {
+          const num = fileMatch[1] ? parseInt(fileMatch[1], 10) : 1;
+          if (num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+
+      let num = maxNum + 1;
+      newFileName = `${nameWithoutExt} - 副本 (${num})${ext}`;
+      newPath = path.join(targetDir, newFileName);
+
+      // 继续递增直到找到不存在的文件名
+      while (await fileExists(newPath)) {
+        num++;
+        newFileName = `${nameWithoutExt} - 副本 (${num})${ext}`;
+        newPath = path.join(targetDir, newFileName);
+      }
+    }
+
+    return newFileName;
+  }
+}
+

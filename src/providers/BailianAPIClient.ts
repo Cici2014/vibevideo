@@ -262,7 +262,30 @@ export class BailianAPIClient {
     });
 
     if (!response.ok || data.code) {
-      throw new Error(`查询任务失败 [${response.status}]: ${data.message || response.statusText}`);
+      // 检测QPS限制错误（429状态码或相关错误信息）
+      const errorMessage = data.message || response.statusText || '';
+      const errorCode = data.code || '';
+      const isQpsLimit = response.status === 429 || 
+                         errorCode.includes('Throttling') || 
+                         errorCode.includes('Throttled') ||
+                         errorMessage.toLowerCase().includes('qps') ||
+                         errorMessage.toLowerCase().includes('限流') ||
+                         errorMessage.toLowerCase().includes('rate limit') ||
+                         errorMessage.toLowerCase().includes('throttling');
+      
+      if (isQpsLimit) {
+        throw new Error(
+          `查询任务失败：超过QPS限制（查询接口默认QPS为20）。\n\n` +
+          `原因：同时查询的任务数量过多，超过了API的QPS限制。\n\n` +
+          `建议：\n` +
+          `1. 减少同时生成的任务数量（建议每次不超过10个）\n` +
+          `2. 分批生成视频，等待前一批完成后再生成下一批\n` +
+          `3. 如需更高频查询，可配置异步任务回调（当前版本暂不支持）\n\n` +
+          `错误详情：${errorMessage || errorCode || response.statusText}`
+        );
+      }
+      
+      throw new Error(`查询任务失败 [${response.status}]: ${errorMessage || response.statusText}`);
     }
 
     // 映射状态

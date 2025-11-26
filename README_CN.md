@@ -28,7 +28,8 @@ Vibe Video 是一个 VS Code 扩展，让您能够像写代码一样制作视频
 - 支持图生视频（更高质量、更可控）
 - **多 AI Provider 支持**：
   - **通义万相 API**（国内服务，中文支持优秀，生产就绪）
-  - **Replicate API**（支持多种视频生成模型，如 Zeroscope、AnimateDiff 等）⚠️ **测试阶段**
+  - **OpenAI Sora API**（支持 sora-2 视频生成，gpt-image-1/dall-e-3 图像生成）⚠️ **未测试**
+  - **Replicate API**（支持多种视频生成模型，如 Zeroscope、AnimateDiff 等）⚠️ **未测试**
 
 ### 📊 可视化管理
 - 侧边栏展示项目资源（主体、场景、分镜、首帧、视频）
@@ -177,6 +178,7 @@ Ctrl+, → 搜索 "vibevideo"
 
 **支持的 Provider：**
 - **通义万相**：输入 DashScope API Key（推荐，✅ **已测试**，生产就绪）
+- **OpenAI Sora**：输入 OpenAI API Key（从 https://platform.openai.com/api-keys 获取）⚠️ **未测试**
 - **Replicate**：输入 Replicate API Token（从 https://replicate.com/account/api-tokens 获取）⚠️ **未测试**
 - **Google Gemini**：输入 Google API Key（⚠️ **未测试**）
 
@@ -211,6 +213,16 @@ Vibe Video 使用以下 AI 模型完成不同的生成任务：
 | **图生视频** | `anotherjesse/zeroscope-v2-xl` | 从首帧图片生成视频 | ❌ 未测试 |
 | **首尾帧生视频** | - | 从首帧和尾帧图片生成视频 | ❌ 不支持 |
 
+#### 🎬 OpenAI Sora - ⚠️ 未测试
+
+| 任务类型 | 默认模型 | 说明 | 测试状态 |
+|---------|---------|------|---------|
+| **文生图** | `gpt-image-1` | 从文本提示词生成图片（也支持 `dall-e-3`） | ❌ 未测试 |
+| **图生图** | `gpt-image-1` | 图片编辑功能（支持多图合成） | ❌ 未测试 |
+| **文生视频** | `sora-2` | 从文本提示词生成视频 | ❌ 未测试 |
+| **图生视频** | `sora-2` | 从首帧图片生成视频 | ❌ 未测试 |
+| **首尾帧生视频** | - | 从首帧和尾帧图片生成视频 | ❌ 不支持 |
+
 #### 🔷 Google Gemini - ⚠️ 未测试
 
 | 任务类型 | 默认模型 | 说明 | 测试状态 |
@@ -230,7 +242,7 @@ Vibe Video 使用以下 AI 模型完成不同的生成任务：
   - 功能可能不完整
   - 如发现问题，欢迎提交 Issue 反馈
 
-**注意**：Replicate、Google Gemini 的模型可以在设置中自定义。上述列出的模型为默认值。
+**注意**：Replicate、OpenAI Sora、Google Gemini 的模型可以在设置中自定义。上述列出的模型为默认值。
 
 ### 6. 生成资源
 使用侧边栏资源视图或命令：
@@ -316,7 +328,7 @@ MyVideoProject/
 
 ## 🚧 开发状态
 
-当前版本：**0.0.7 (Alpha)**
+当前版本：**0.0.9 (Alpha)**
 
 ### ✅ 已实现
 - 项目初始化（包含主体、场景目录）
@@ -333,13 +345,14 @@ MyVideoProject/
 - 侧边栏资源视图
 - **多 AI Provider 支持**：
   - 通义万相 API 集成（默认，✅ **已测试**，生产就绪，支持首尾帧生成视频）
+  - OpenAI Sora API 集成（支持 sora-2 视频生成，gpt-image-1/dall-e-3 图像生成）⚠️ **未测试**
   - Replicate API 集成（支持 Zeroscope、AnimateDiff、SDXL 等多种模型）⚠️ **未测试**
   - Google Gemini API 集成（支持 gemini-3-pro-image-preview、veo-3 等模型）⚠️ **未测试**
 
 ### 🚧 开发中
 - 并行生成优化
 - **更多 AI Provider 支持**：
-  - 支持 OpenAI Sora 模型，提供更高质量的视频生成能力
+  - ✅ OpenAI Sora Provider 支持（已实现，⚠️ 未测试）
 - **Claude Code Skills 支持**：
   - 集成 Claude Code 的 skills 功能，通过 skills 强化生成的提示词质量
   - 提供丰富的优秀提示词示例库（产品展示、生活方式、故事类等场景）

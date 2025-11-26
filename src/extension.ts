@@ -22,13 +22,15 @@ import { generateAllScenes, generateSingleSceneCommand } from './commands/genera
 import { editImage } from './commands/editImage';
 import { composeAllVideos } from './commands/composeVideo';
 import { extractLastFrameToNext } from './commands/extractLastFrame';
-import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile } from './utils/fileSystem';
+import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile, generateUniqueFileName } from './utils/fileSystem';
 
 let resourceTreeProvider: ResourceTreeProvider | undefined;
 let providerManager: ProviderManager | undefined;
 let configManager: ConfigManager | undefined;
 let subjectManager: SubjectManager | undefined;
 let sceneManager: SceneManager | undefined;
+// 存储复制的图片路径，用于粘贴操作
+let copiedImagePath: string | undefined;
 
 /**
  * 扩展激活
@@ -54,7 +56,8 @@ export function activate(context: vscode.ExtensionContext) {
     if (e.affectsConfiguration('vibevideo.provider') || 
         e.affectsConfiguration('vibevideo.dashscope') || 
         e.affectsConfiguration('vibevideo.replicate') ||
-        e.affectsConfiguration('vibevideo.google')) {
+        e.affectsConfiguration('vibevideo.google') ||
+        e.affectsConfiguration('vibevideo.sora')) {
       // 配置变化时重置 Provider，下次获取时会重新创建
       providerManager?.resetProvider();
       console.log('[Vibe Video] 配置已更新，Provider 缓存已重置');
@@ -1272,6 +1275,95 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // 复制图片命令
+  const copyImageCommand = vscode.commands.registerCommand(
+    'vibevideo.copyImage',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要复制的图片项');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是图片类型
+      if (!isImageResource(item)) {
+        vscode.window.showErrorMessage('只能复制图片类型的资源');
+        return;
+      }
+
+      // 检查文件是否存在
+      if (!(await fileExists(resourcePath))) {
+        vscode.window.showErrorMessage('文件不存在');
+        return;
+      }
+
+      // 存储复制的文件路径
+      copiedImagePath = resourcePath;
+      const fileName = path.basename(resourcePath);
+      vscode.window.showInformationMessage(`已复制: ${fileName}`);
+    }
+  );
+
+  // 粘贴图片命令
+  const pasteImageCommand = vscode.commands.registerCommand(
+    'vibevideo.pasteImage',
+    async (item: ResourceTreeItem) => {
+      if (!copiedImagePath) {
+        vscode.window.showWarningMessage('没有可粘贴的内容，请先复制一个图片');
+        return;
+      }
+
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要粘贴到的目标位置');
+        return;
+      }
+
+      const targetResourcePath = item.resourcePath;
+      if (!targetResourcePath) {
+        vscode.window.showErrorMessage('目标位置没有文件路径');
+        return;
+      }
+
+      // 检查是否是图片类型
+      if (!isImageResource(item)) {
+        vscode.window.showErrorMessage('只能粘贴到图片类型的资源位置');
+        return;
+      }
+
+      // 检查源文件是否存在
+      if (!(await fileExists(copiedImagePath))) {
+        vscode.window.showErrorMessage('复制的文件不存在');
+        copiedImagePath = undefined;
+        return;
+      }
+
+      try {
+        // 获取目标目录（与目标文件相同的目录）
+        const targetDir = path.dirname(targetResourcePath);
+        const sourceFileName = path.basename(copiedImagePath);
+        
+        // 生成唯一的文件名
+        const uniqueFileName = await generateUniqueFileName(targetDir, sourceFileName);
+        const targetPath = path.join(targetDir, uniqueFileName);
+
+        // 复制文件
+        await copyFile(copiedImagePath, targetPath);
+
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+
+        vscode.window.showInformationMessage(`已粘贴: ${uniqueFileName}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`粘贴失败: ${error.message || error}`);
+      }
+    }
+  );
+
   // 注册所有命令和视图
   context.subscriptions.push(
     treeView,
@@ -1307,6 +1399,8 @@ export function activate(context: vscode.ExtensionContext) {
     selectImageCommand,
     editImageCommand,
     composeVideoCommand,
+    copyImageCommand,
+    pasteImageCommand,
     // 注册资源树提供者以便在扩展停用时清理监听器
     {
       dispose: () => {

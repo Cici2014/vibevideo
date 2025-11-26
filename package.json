@@ -2,7 +2,7 @@
   "name": "vibevideo",
   "displayName": "VibeVideo",
   "description": "Vibe Video: Create videos like writing code — write your script in Markdown, and AI automatically generates storyboards and edits the footage.",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "publisher": "fastpen",
   "engines": {
     "vscode": "^1.99.3"
@@ -203,6 +203,18 @@
         "title": "视频合成",
         "category": "Vibe Video",
         "icon": "$(combine)"
+      },
+      {
+        "command": "vibevideo.copyImage",
+        "title": "复制",
+        "category": "Vibe Video",
+        "icon": "$(copy)"
+      },
+      {
+        "command": "vibevideo.pasteImage",
+        "title": "粘贴",
+        "category": "Vibe Video",
+        "icon": "$(paste)"
       }
     ],
     "viewsContainers": {
@@ -641,6 +653,76 @@
           "command": "vibevideo.editImage",
           "when": "view == vvResources && viewItem == referenceImage",
           "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == firstFrameImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == subjectImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == sceneImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.copyImage",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == firstFrameImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == firstFrameImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == subjectImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == subjectImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == sceneImage",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == sceneImageAlternative",
+          "group": "1_actions"
+        },
+        {
+          "command": "vibevideo.pasteImage",
+          "when": "view == vvResources && viewItem == referenceImage",
+          "group": "1_actions"
         }
       ]
     },
@@ -695,13 +777,34 @@
           "description": "视频分辨率（仅适用于通义万相 provider，DashScope 官方档位）",
           "order": 4
         },
+        "vibevideo.video.aspectRatio": {
+          "type": "string",
+          "default": "16:9",
+          "enum": [
+            "16:9",
+            "4:3",
+            "1:1",
+            "3:4",
+            "9:16"
+          ],
+          "enumDescriptions": [
+            "16:9 - 横屏（标准宽屏）",
+            "4:3 - 横屏（传统比例）",
+            "1:1 - 正方形",
+            "3:4 - 竖屏（传统比例）",
+            "9:16 - 竖屏（手机竖屏）"
+          ],
+          "description": "视频长宽比（适用于所有 provider，结合分辨率使用）",
+          "markdownDescription": "视频长宽比（适用于所有 provider）\n\n结合分辨率使用，确定最终的视频尺寸。\n\n- **16:9** - 横屏（标准宽屏，推荐）\n- **4:3** - 横屏（传统比例）\n- **1:1** - 正方形\n- **3:4** - 竖屏（传统比例）\n- **9:16** - 竖屏（手机竖屏）",
+          "order": 5
+        },
         "vibevideo.video.defaultDuration": {
           "type": "number",
           "default": 5,
           "minimum": 3,
           "maximum": 30,
           "description": "默认视频时长（秒，适用于所有 provider）",
-          "order": 5
+          "order": 6
         },
         "vibevideo.video.numOutputs": {
           "type": "number",
@@ -710,7 +813,7 @@
           "maximum": 5,
           "description": "视频生成一次生成的视频数量（n 参数，适用于所有 provider）",
           "markdownDescription": "视频生成一次生成的视频数量（适用于所有 provider）\n\n设置每次调用视频生成接口时生成的视频数量。\n\n- 值越大，生成的视频越多，但消耗的 API 额度也越多\n- 建议值：1-2 个\n- 当生成多个视频时，第一个使用原文件名，其余添加 `.o-1`, `.o-2` 等后缀",
-          "order": 6
+          "order": 7
         },
         "vibevideo.replicate.apiKey": {
           "type": "string",

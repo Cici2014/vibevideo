@@ -5,11 +5,21 @@
 /**
  * 视频生成选项
  */
+export type SupportedVideoSize = '720x1280' | '1280x720' | '1024x1792' | '1792x1024';
+
 export interface VideoOptions {
-  /** 时长（秒） */
+  /** 兼容旧字段：时长（秒） */
   duration?: number;
-  /** 分辨率 */
+  /** 官方 seconds 参数（仅允许 4/8/12） */
+  seconds?: 4 | 8 | 12;
+  /** 兼容旧字段：分辨率描述，如 720P、1280*720 等 */
   resolution?: string;
+  /** 长宽比，如 16:9、9:16 等 */
+  aspectRatio?: string;
+  /** 官方 size 参数，格式为 widthxheight */
+  size?: SupportedVideoSize;
+  /** 视频质量 */
+  quality?: 'standard' | 'pro';
   /** 运动幅度 */
   motion?: 'low' | 'medium' | 'high';
 }
@@ -27,6 +37,34 @@ export interface ImageOptions {
 /**
  * 任务状态
  */
+export interface VideoJob {
+  id?: string;
+  object?: string;
+  model?: string;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  progress?: number;
+  prompt?: string;
+  remixed_from_video_id?: string;
+  created_at?: number;
+  completed_at?: number;
+  expires_at?: number;
+  seconds?: string;
+  size?: string;
+  quality?: string;
+  video_url?: string;
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
+}
+
+export interface VideoListOptions {
+  after?: string;
+  limit?: number;
+  order?: 'asc' | 'desc';
+}
+
 export interface TaskStatus {
   /** 状态 */
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -38,6 +76,8 @@ export interface TaskStatus {
   urls?: string[];
   /** 错误信息（失败时的详细原因） */
   error?: string;
+  /** 原始任务信息（用于展示更多字段） */
+  job?: VideoJob;
 }
 
 /**
@@ -73,6 +113,26 @@ export interface VideoAIProvider {
    * 下载资源（图片或视频）
    */
   downloadResource(taskId: string, savePath: string): Promise<void>;
+
+  /**
+   * Remix 已生成的视频（部分 Provider 支持）
+   */
+  remixVideo?(videoId: string, prompt: string, options?: VideoOptions): Promise<string>;
+
+  /**
+   * 列出历史视频任务
+   */
+  listVideos?(options?: VideoListOptions): Promise<VideoJob[]>;
+
+  /**
+   * 获取单个视频任务
+   */
+  retrieveVideo?(videoId: string): Promise<VideoJob>;
+
+  /**
+   * 删除视频任务
+   */
+  deleteVideo?(videoId: string): Promise<void>;
 }
 
 /**
@@ -133,7 +193,7 @@ export interface SoraConfig {
   apiKey: string;
   /** 自定义 API 基础 URL（可选，默认使用 https://api.openai.com/v1） */
   baseUrl?: string;
-  /** 视频生成模型（可选，默认使用 sora） */
+  /** 视频生成模型（可选，默认使用 sora-2） */
   videoModel?: string;
   /** 图像生成模型（可选，默认使用 dall-e-3，用于文生图） */
   imageModel?: string;

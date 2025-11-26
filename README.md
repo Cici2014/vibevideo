@@ -28,6 +28,7 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Image-to-video generation (higher quality, more controllable)
 - Multiple AI Provider support:
   - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, ✅ **Tested**, production ready)
+  - **OpenAI Sora API** (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ⚠️ **Not Tested**
   - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Not Tested**
   - **Google Gemini API** (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
@@ -179,6 +180,7 @@ Ctrl+, → Search "vibevideo"
 
 **Supported Providers:**
 - **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, ✅ **Tested**, Production Ready)
+- **OpenAI Sora**: Enter OpenAI API Key (get from https://platform.openai.com/api-keys) ⚠️ **Not Tested**
 - **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Not Tested**
 - **Google Gemini**: Enter Google API Key (⚠️ **Not Tested**)
 
@@ -213,6 +215,16 @@ Vibe Video uses the following AI models for different generation tasks:
 | **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images | ❌ Not Tested |
 | **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
 
+#### 🎬 OpenAI Sora - ⚠️ Not Tested
+
+| Task Type | Default Model | Description | Testing Status |
+|-----------|--------------|-------------|---------------|
+| **Text-to-Image** | `gpt-image-1` | Generate images from text prompts (also supports `dall-e-3`) | ❌ Not Tested |
+| **Image-to-Image** | `gpt-image-1` | Image editing feature (supports multi-image composition) | ❌ Not Tested |
+| **Text-to-Video** | `sora-2` | Generate videos from text prompts | ❌ Not Tested |
+| **Image-to-Video** | `sora-2` | Generate videos from initial frame images | ❌ Not Tested |
+| **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
+
 #### 🔷 Google Gemini - ⚠️ Not Tested
 
 | Task Type | Default Model | Description | Testing Status |
@@ -232,7 +244,7 @@ Vibe Video uses the following AI models for different generation tasks:
   - Features may be incomplete
   - If you find issues, please submit an Issue
 
-**Note**: Replicate and Google Gemini models can be customized in settings. The models listed above are defaults.
+**Note**: Replicate, OpenAI Sora, and Google Gemini models can be customized in settings. The models listed above are defaults.
 
 ### 6. Generate Resources
 Use sidebar resource view or commands:
@@ -318,7 +330,7 @@ MyVideoProject/
 
 ## 🚧 Development Status
 
-Current Version: **0.0.7 (Alpha)**
+Current Version: **0.0.9 (Alpha)**
 
 ### ✅ Implemented
 - Project initialization (including subjects, scenes directories)
@@ -335,13 +347,14 @@ Current Version: **0.0.7 (Alpha)**
 - Sidebar resource view
 - **Multiple AI Provider support**:
   - Tongyi Wanxiang API integration (default, ✅ **Tested**, production ready, supports first-last frame video generation)
+  - OpenAI Sora API integration (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ⚠️ **Not Tested**
   - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Not Tested**
   - Google Gemini API integration (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
 ### 🚧 In Development
 - Parallel generation optimization
 - **More AI Provider Support**:
-  - Support OpenAI Sora model, provide higher quality video generation capabilities
+  - ✅ OpenAI Sora Provider support (implemented, ⚠️ not tested)
 - **Claude Code Skills Support**:
   - Integrate Claude Code's skills functionality to enhance prompt quality through skills
   - Provide rich excellent prompt example library (product showcase, lifestyle, story scenarios, etc.)
@@ -378,20 +391,20 @@ For questions or suggestions, please contact:
 
 ## 📄 License
 
-Vibe Video 采用双重许可模式：
+Vibe Video uses a dual licensing model:
 
-- **GPL v3**：适用于开源项目和个人开发者（详见 [LICENSE](LICENSE)）
-- **商业许可**：适用于需要闭源使用或不想遵守 GPL 条款的商业用户（详见 [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md)）
+- **GPL v3**: For open source projects and individual developers (see [LICENSE](LICENSE))
+- **Commercial License**: For commercial users who need to use it in proprietary software or do not want to comply with GPL terms (see [LICENSE-COMMERCIAL.md](LICENSE-COMMERCIAL.md))
 
-### 选择许可
+### Choosing a License
 
-- **开源使用**：如果您是开源项目或个人开发者，可以直接使用 GPL v3 许可，完全免费
-- **商业使用**：如果您需要在专有软件中使用或不想开源衍生作品，请购买商业许可
+- **Open Source Use**: If you are an open source project or individual developer, you can use the GPL v3 license directly, completely free
+- **Commercial Use**: If you need to use it in proprietary software or do not want to open source derivative works, please purchase a commercial license
 
-如需购买商业许可，请联系：
-- 📧 邮箱：cici_yiyi@qq.com
-- 💬 微信：扫描二维码添加
-- 👥 QQ群：454222772
+To purchase a commercial license, please contact:
+- 📧 Email: cici_yiyi@qq.com
+- 💬 WeChat: Scan QR code to add
+- 👥 QQ Group: 454222772
 
 ---
 

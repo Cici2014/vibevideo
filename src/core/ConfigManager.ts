@@ -173,6 +173,13 @@ export class ConfigManager {
   }
 
   /**
+   * 获取视频长宽比（返回 16:9、4:3、1:1、3:4、9:16 格式）
+   */
+  getAspectRatio(): string {
+    return this.getConfig().get<string>('video.aspectRatio', '16:9');
+  }
+
+  /**
    * 获取默认时长
    */
   getDefaultDuration(): number {

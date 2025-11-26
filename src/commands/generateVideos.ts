@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { ProviderManager } from '../providers/ProviderManager';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { Storyboard } from '../types';
@@ -57,17 +58,22 @@ export async function generateAllVideos(
     let confirmMessage: string;
     let confirmButton: string;
     
+    // QPS限制提示（如果任务数量较多）
+    const qpsWarning = videosToGenerate.length > 10 
+      ? `\n\n⚠️ QPS限制提示：同时生成 ${videosToGenerate.length} 个视频可能会超过API的QPS限制（查询接口默认QPS为20）。建议分批生成，每次不超过10个，或等待前一批完成后再生成下一批。`
+      : '';
+    
     if (existingVideos.length > 0 && newVideos.length > 0) {
       // 部分已存在，部分需要生成
-      confirmMessage = `将生成 ${videosToGenerate.length} 个视频（其中 ${existingVideos.length} 个将重新生成，${newVideos.length} 个为新生成），预计需要 ${Math.ceil(videosToGenerate.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmMessage = `将生成 ${videosToGenerate.length} 个视频（其中 ${existingVideos.length} 个将重新生成，${newVideos.length} 个为新生成），预计需要 ${Math.ceil(videosToGenerate.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。${qpsWarning}是否继续？`;
       confirmButton = '继续生成';
     } else if (existingVideos.length > 0) {
       // 所有视频都已存在，这是重新生成
-      confirmMessage = `所有视频都已生成。将重新生成 ${existingVideos.length} 个视频，预计需要 ${Math.ceil(existingVideos.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmMessage = `所有视频都已生成。将重新生成 ${existingVideos.length} 个视频，预计需要 ${Math.ceil(existingVideos.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。${qpsWarning}是否继续？`;
       confirmButton = '重新生成';
     } else {
       // 所有都是新生成
-      confirmMessage = `将生成 ${newVideos.length} 个视频，预计需要 ${Math.ceil(newVideos.length * 2)} 分钟。是否继续？`;
+      confirmMessage = `将生成 ${newVideos.length} 个视频，预计需要 ${Math.ceil(newVideos.length * 2)} 分钟。${qpsWarning}是否继续？`;
       confirmButton = '继续';
     }
 
@@ -174,6 +180,32 @@ function convertResolutionToSize(resolution: string): string {
     '1080P': '1920*1080'
   };
   return resolutionMap[resolution] || '832*480';
+}
+
+/**
+ * 处理 composeMultipleImages 的返回值（URL、本地文件路径或 taskId）
+ */
+async function handleComposeResult(
+  result: string,
+  savePath: string,
+  provider: any,
+  workspaceRoot: string,
+  pollTaskStatus: (provider: any, taskId: string) => Promise<void>
+): Promise<void> {
+  if (result.startsWith('http://') || result.startsWith('https://')) {
+    // 直接是 URL，直接下载
+    await provider.client.downloadResource(result, savePath);
+  } else if (path.isAbsolute(result) || result.startsWith('./') || result.startsWith('../')) {
+    // 本地文件路径：直接复制文件
+    const sourcePath = path.isAbsolute(result) ? result : path.join(workspaceRoot, result);
+    await ensureDir(path.dirname(savePath));
+    await fs.promises.copyFile(sourcePath, savePath);
+    console.log(`[图生视频] 已复制本地文件: ${sourcePath} → ${savePath}`);
+  } else {
+    // 是 task_id，需要轮询任务状态
+    await pollTaskStatus(provider, result);
+    await provider.downloadResource(result, savePath);
+  }
 }
 
 /**
@@ -297,16 +329,7 @@ export async function generateSingleVideo(
         
         // 下载临时图片
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        
-        // 检查返回的是 URL 还是 task_id
-        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
-          // 直接是 URL，直接下载
-          await provider.client.downloadResource(tempImageResult, tempImagePath);
-        } else {
-          // 是 task_id，需要轮询任务状态
-          await pollTaskStatus(provider, tempImageResult);
-          await provider.downloadResource(tempImageResult, tempImagePath);
-        }
+        await handleComposeResult(tempImageResult, tempImagePath, provider, workspaceRoot, pollTaskStatus);
         
         imagePath = tempImagePath;
         imageSource = `主体+场景合成`;
@@ -344,16 +367,7 @@ export async function generateSingleVideo(
 
         const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, imageNumOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        
-        // 检查返回的是 URL 还是 task_id
-        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
-          // 直接是 URL，直接下载
-          await provider.client.downloadResource(tempImageResult, tempImagePath);
-        } else {
-          // 是 task_id，需要轮询任务状态
-          await pollTaskStatus(provider, tempImageResult);
-          await provider.downloadResource(tempImageResult, tempImagePath);
-        }
+        await handleComposeResult(tempImageResult, tempImagePath, provider, workspaceRoot, pollTaskStatus);
         
         imagePath = tempImagePath;
         imageSource = `主体合成`;
@@ -391,16 +405,7 @@ export async function generateSingleVideo(
 
         const tempImageResult = await provider.client.composeMultipleImages(imageBase64Array, composePrompt, imageSize, imageNumOutputs);
         const tempImagePath = path.join(workspaceRoot, '.temp', `${storyboard.id}-temp.png`);
-        
-        // 检查返回的是 URL 还是 task_id
-        if (tempImageResult && (tempImageResult.startsWith('http://') || tempImageResult.startsWith('https://'))) {
-          // 直接是 URL，直接下载
-          await provider.client.downloadResource(tempImageResult, tempImagePath);
-        } else {
-          // 是 task_id，需要轮询任务状态
-          await pollTaskStatus(provider, tempImageResult);
-          await provider.downloadResource(tempImageResult, tempImagePath);
-        }
+        await handleComposeResult(tempImageResult, tempImagePath, provider, workspaceRoot, pollTaskStatus);
         
         imagePath = tempImagePath;
         imageSource = `场景合成`;
@@ -429,11 +434,12 @@ export async function generateSingleVideo(
     throw new Error(`分镜 ${storyboard.id} 缺少视频提示词，无法生成视频`);
   }
 
-  // 从配置中获取分辨率和视频生成数量
+  // 从配置中获取分辨率、长宽比和视频生成数量
   const resolution = configManager.getResolution();
+  const aspectRatio = configManager.getAspectRatio();
   const numOutputs = configManager.getVideoNumOutputs();
   
-  console.log(`[视频生成] ${storyboard.id}: 时长=${duration}秒, 方式=${imagePath ? (imageSource || '图生视频') : '文生视频'}, 分辨率=${resolution}, 数量=${numOutputs}`);
+  console.log(`[视频生成] ${storyboard.id}: 时长=${duration}秒, 方式=${imagePath ? (imageSource || '图生视频') : '文生视频'}, 分辨率=${resolution}, 长宽比=${aspectRatio}, 数量=${numOutputs}`);
   console.log(`[视频生成] ${storyboard.id}: 提示词=${videoPrompt.substring(0, 100)}...`);
 
   // 如果 n > 1，需要生成多个视频
@@ -444,19 +450,19 @@ export async function generateSingleVideo(
     let currentTaskId: string;
     
     if (imagePath) {
-      // 图生视频：使用配置的分辨率（480P、720P、1080P 格式）
+      // 图生视频：使用配置的分辨率和长宽比
       currentTaskId = await provider.imageToVideo(
         imagePath,
         videoPrompt,
         { 
           duration: duration,
-          resolution: resolution  // DashScope 图生视频用 1080P/720P/480P 格式
+          resolution: resolution,  // 480P、720P、1080P 格式
+          aspectRatio: aspectRatio  // 16:9、9:16 等格式
         },
         numOutputs === 1 ? undefined : 1  // 如果只生成一个，不传 n；否则每次生成一个
       );
     } else {
-      // 纯文生视频：将 P 格式转换为 width*height 格式
-      const size = convertResolutionToSize(resolution);
+      // 纯文生视频：传递分辨率和长宽比，让 provider 自己解析
       if (i === 0) {
         console.log(`[文生视频] ${storyboard.id}`);
       }
@@ -464,7 +470,8 @@ export async function generateSingleVideo(
         videoPrompt,
         { 
           duration: duration,
-          resolution: size  // DashScope 文生视频用 width*height 格式
+          resolution: resolution,  // 480P、720P、1080P 格式
+          aspectRatio: aspectRatio  // 16:9、9:16 等格式
         },
         numOutputs === 1 ? undefined : 1  // 如果只生成一个，不传 n；否则每次生成一个
       );

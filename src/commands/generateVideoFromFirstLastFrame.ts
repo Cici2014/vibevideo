@@ -207,9 +207,10 @@ async function generateSingleVideoFromFirstLastFrame(
       }
 
       // 调用首尾帧生成视频接口
-      // 从配置中获取分辨率
+      // 从配置中获取分辨率和长宽比
       const resolution = configManager.getResolution();
-      console.log(`[首尾帧生成视频] ${storyboard.id}: 时长=${duration}秒, 分辨率=${resolution}`);
+      const aspectRatio = configManager.getAspectRatio();
+      console.log(`[首尾帧生成视频] ${storyboard.id}: 时长=${duration}秒, 分辨率=${resolution}, 长宽比=${aspectRatio}`);
       let taskId: string;
       if (lastFrameBase64) {
         // 使用首尾帧生成
@@ -227,7 +228,8 @@ async function generateSingleVideoFromFirstLastFrame(
         }
         taskId = await provider.imageToVideo(firstFrameBase64, prompt, { 
           duration: duration,
-          resolution: resolution 
+          resolution: resolution,
+          aspectRatio: aspectRatio
         });
       }
 
@@ -407,14 +409,19 @@ export async function generateAllVideosFromFirstLastFrame(
     let confirmMessage: string;
     let confirmButton: string;
     
+    // QPS限制提示（如果任务数量较多）
+    const qpsWarning = videosToGenerate.length > 10 
+      ? `\n\n⚠️ QPS限制提示：同时生成 ${videosToGenerate.length} 个视频可能会超过API的QPS限制（查询接口默认QPS为20）。建议分批生成，每次不超过10个，或等待前一批完成后再生成下一批。`
+      : '';
+    
     if (existingVideos.length > 0 && newVideos.length > 0) {
-      confirmMessage = `将根据首尾帧生成 ${videosToGenerate.length} 个视频（其中 ${existingVideos.length} 个将重新生成，${newVideos.length} 个为新生成），预计需要 ${Math.ceil(videosToGenerate.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmMessage = `将根据首尾帧生成 ${videosToGenerate.length} 个视频（其中 ${existingVideos.length} 个将重新生成，${newVideos.length} 个为新生成），预计需要 ${Math.ceil(videosToGenerate.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。${qpsWarning}是否继续？`;
       confirmButton = '继续生成';
     } else if (existingVideos.length > 0) {
-      confirmMessage = `所有视频都已生成。将根据首尾帧重新生成 ${existingVideos.length} 个视频，预计需要 ${Math.ceil(existingVideos.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。是否继续？`;
+      confirmMessage = `所有视频都已生成。将根据首尾帧重新生成 ${existingVideos.length} 个视频，预计需要 ${Math.ceil(existingVideos.length * 2)} 分钟。\n\n⚠️ 重新生成将覆盖现有视频。${qpsWarning}是否继续？`;
       confirmButton = '重新生成';
     } else {
-      confirmMessage = `将根据首尾帧生成 ${newVideos.length} 个视频，预计需要 ${Math.ceil(newVideos.length * 2)} 分钟。是否继续？`;
+      confirmMessage = `将根据首尾帧生成 ${newVideos.length} 个视频，预计需要 ${Math.ceil(newVideos.length * 2)} 分钟。${qpsWarning}是否继续？`;
       confirmButton = '继续';
     }
 
