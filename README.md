@@ -28,7 +28,7 @@ Vibe Video is a VS Code extension that lets you create videos like writing code:
 - Image-to-video generation (higher quality, more controllable)
 - Multiple AI Provider support:
   - **Tongyi Wanxiang API** (domestic service with excellent Chinese support, ✅ **Tested**, production ready)
-  - **OpenAI Sora API** (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ⚠️ **Not Tested**
+  - **OpenAI Sora API** (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ✅ **Tested** (Tongyi Wanxiang recommended)
   - **Replicate API** (supports multiple video generation models like Zeroscope, AnimateDiff, etc.) ⚠️ **Not Tested**
   - **Google Gemini API** (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
@@ -180,13 +180,14 @@ Ctrl+, → Search "vibevideo"
 
 **Supported Providers:**
 - **Tongyi Wanxiang**: Enter DashScope API Key (Recommended, ✅ **Tested**, Production Ready)
-- **OpenAI Sora**: Enter OpenAI API Key (get from https://platform.openai.com/api-keys) ⚠️ **Not Tested**
+- **OpenAI Sora**: Enter OpenAI API Key (get from https://platform.openai.com/api-keys) ✅ **Tested** (Tongyi Wanxiang recommended)
 - **Replicate**: Enter Replicate API Token (get from https://replicate.com/account/api-tokens) ⚠️ **Not Tested**
 - **Google Gemini**: Enter Google API Key (⚠️ **Not Tested**)
 
 **⚠️ Testing Status Notice**:
 - ✅ **Tested**: Tongyi Wanxiang has been fully tested, all features working normally, **strongly recommended for production**
-- ❌ **Not Tested**: Other Providers are implemented but not tested with actual APIs
+- ✅ **Tested**: OpenAI Sora has been tested, but **Tongyi Wanxiang is recommended**
+- ❌ **Not Tested**: Other Providers (Replicate, Google Gemini) are implemented but not tested with actual APIs
 
 Configuration is automatically saved to VS Code settings
 
@@ -215,14 +216,14 @@ Vibe Video uses the following AI models for different generation tasks:
 | **Image-to-Video** | `anotherjesse/zeroscope-v2-xl` | Generate videos from initial frame images | ❌ Not Tested |
 | **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
 
-#### 🎬 OpenAI Sora - ⚠️ Not Tested
+#### 🎬 OpenAI Sora - ✅ Tested (Tongyi Wanxiang Recommended)
 
 | Task Type | Default Model | Description | Testing Status |
 |-----------|--------------|-------------|---------------|
-| **Text-to-Image** | `gpt-image-1` | Generate images from text prompts (also supports `dall-e-3`) | ❌ Not Tested |
-| **Image-to-Image** | `gpt-image-1` | Image editing feature (supports multi-image composition) | ❌ Not Tested |
-| **Text-to-Video** | `sora-2` | Generate videos from text prompts | ❌ Not Tested |
-| **Image-to-Video** | `sora-2` | Generate videos from initial frame images | ❌ Not Tested |
+| **Text-to-Image** | `gpt-image-1` | Generate images from text prompts (also supports `dall-e-3`) | ✅ Tested |
+| **Image-to-Image** | `gpt-image-1` | Image editing feature (supports multi-image composition) | ✅ Tested |
+| **Text-to-Video** | `sora-2` | Generate videos from text prompts | ✅ Tested |
+| **Image-to-Video** | `sora-2` | Generate videos from initial frame images | ✅ Tested |
 | **First-Last Frame to Video** | - | Generate videos from first and last frame images | ❌ Not Supported |
 
 #### 🔷 Google Gemini - ⚠️ Not Tested
@@ -238,7 +239,8 @@ Vibe Video uses the following AI models for different generation tasks:
 **⚠️ Testing Status Notice**:
 
 - ✅ **Tongyi Wanxiang**: Fully tested, all features working normally, **strongly recommended for production environment**
-- ❌ **Other Providers**: Code implemented but not tested with actual APIs
+- ✅ **OpenAI Sora**: Tested, all features working normally, but **Tongyi Wanxiang is recommended**
+- ❌ **Other Providers** (Replicate, Google Gemini): Code implemented but not tested with actual APIs
   - May encounter undiscovered bugs
   - API format may not match expectations
   - Features may be incomplete
@@ -347,14 +349,14 @@ Current Version: **0.0.9 (Alpha)**
 - Sidebar resource view
 - **Multiple AI Provider support**:
   - Tongyi Wanxiang API integration (default, ✅ **Tested**, production ready, supports first-last frame video generation)
-  - OpenAI Sora API integration (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ⚠️ **Not Tested**
+  - OpenAI Sora API integration (supports sora-2 video generation, gpt-image-1/dall-e-3 image generation) ✅ **Tested** (Tongyi Wanxiang recommended)
   - Replicate API integration (supports Zeroscope, AnimateDiff, SDXL, and more models) ⚠️ **Not Tested**
   - Google Gemini API integration (supports gemini-3-pro-image-preview, veo-3 models) ⚠️ **Not Tested**
 
 ### 🚧 In Development
 - Parallel generation optimization
 - **More AI Provider Support**:
-  - ✅ OpenAI Sora Provider support (implemented, ⚠️ not tested)
+  - ✅ OpenAI Sora Provider support (implemented, ✅ tested, Tongyi Wanxiang recommended)
 - **Claude Code Skills Support**:
   - Integrate Claude Code's skills functionality to enhance prompt quality through skills
   - Provide rich excellent prompt example library (product showcase, lifestyle, story scenarios, etc.)
