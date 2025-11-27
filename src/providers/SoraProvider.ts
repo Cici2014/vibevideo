@@ -18,6 +18,7 @@ import {
   SupportedVideoSize
 } from './types';
 import { imageToBase64 } from '../utils/imageEncoder';
+import { backupExistingFile } from '../utils/fileSystem';
 
 /**
  * Sora Provider 客户端接口
@@ -813,6 +814,7 @@ export class SoraProvider implements VideoAIProvider {
     }
 
     const buffer = await response.arrayBuffer();
+    await backupExistingFile(savePath);
     await fs.promises.writeFile(savePath, Buffer.from(buffer));
   }
 
@@ -831,6 +833,7 @@ export class SoraProvider implements VideoAIProvider {
     }
 
     const buffer = await response.arrayBuffer();
+    await backupExistingFile(savePath);
     await fs.promises.writeFile(savePath, Buffer.from(buffer));
   }
 

@@ -10,6 +10,7 @@ import { ProviderManager } from '../providers/ProviderManager';
 import { ConfigManager } from '../core/ConfigManager';
 import { Subject } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
+import { backupExistingFile } from '../utils/fileSystem';
 
 /**
  * 生成所有主体图
@@ -268,6 +269,7 @@ async function generateSingleSubject(
       // 本地文件路径：直接复制文件
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       const sourcePath = path.isAbsolute(resultUrl) ? resultUrl : (workspaceRoot ? path.join(workspaceRoot, resultUrl) : resultUrl);
+      await backupExistingFile(subject.imagePath);
       await fs.promises.copyFile(sourcePath, subject.imagePath);
       console.log(`[主体] 已复制本地文件: ${sourcePath} → ${subject.imagePath}`);
       console.log(`✓ 主体生成完成: ${subject.id}`);

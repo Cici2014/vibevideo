@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'fs';
+import { backupExistingFile } from '../utils/fileSystem';
 
 /**
  * API 响应
@@ -119,11 +120,21 @@ export class BailianAPIClient {
 
   /**
    * 文生视频
-   * 注意：API 不支持自定义 duration 参数
+   * @param duration 视频时长（秒），支持3-10秒，默认5秒
    * @param n 生成视频数量（如果 API 不支持，将通过多次调用实现）
    */
-  async textToVideo(prompt: string, size: string = '832*480', n: number = 1): Promise<string> {
+  async textToVideo(prompt: string, size: string = '832*480', n: number = 1, duration?: number): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
+
+    // 验证并设置duration参数（支持3-10秒，默认5秒）
+    let videoDuration = 5;
+    if (duration !== undefined) {
+      if (duration >= 3 && duration <= 10) {
+        videoDuration = Math.round(duration);
+      } else {
+        console.warn(`[API] 时长 ${duration}秒 不在支持范围内（3-10秒），使用默认值5秒`);
+      }
+    }
 
     const body = {
       model: 'wan2.5-i2v-preview',
@@ -132,6 +143,7 @@ export class BailianAPIClient {
       },
       parameters: {
         size,
+        duration: videoDuration,  // 添加duration参数
         prompt_extend: true,
         audio: true,  // 启用音频
         ...(n > 1 ? { n: n } : {})  // 如果 n > 1，尝试传递 n 参数（API 可能不支持）
@@ -164,11 +176,32 @@ export class BailianAPIClient {
   /**
    * 图生视频（基于首帧）
    * 支持 base64 data URL 格式（data:image/png;base64,...）
-   * 注意：API 不支持自定义 duration 参数
+   * 使用 wan2.5-i2v-preview 模型
+   * 
+   * 注意：wan2.5-i2v-preview 模型对 480P 的输出可能不是标准分辨率（如 842x747），
+   * 这是 API 根据输入图片尺寸自动调整的结果
+   * 
+   * @param duration 视频时长（秒），支持3-10秒，默认5秒
    * @param n 生成视频数量（如果 API 不支持，将通过多次调用实现）
    */
-  async imageToVideo(imageUrl: string, prompt: string, resolution: string = '1080P', n: number = 1): Promise<string> {
+  async imageToVideo(imageUrl: string, prompt: string, resolution: string = '1080P', n: number = 1, duration?: number): Promise<string> {
     const url = `${this.baseUrl}/video-generation/video-synthesis`;
+
+    // 验证并设置duration参数（支持3-10秒，默认5秒）
+    let videoDuration = 5;
+    if (duration !== undefined) {
+      if (duration >= 3 && duration <= 10) {
+        videoDuration = Math.round(duration);
+      } else {
+        console.warn(`[API] 时长 ${duration}秒 不在支持范围内（3-10秒），使用默认值5秒`);
+      }
+    }
+
+    // 警告：480P 可能输出非标准分辨率
+    const normalizedResolution = resolution.toUpperCase();
+    if (normalizedResolution === '480P') {
+      console.warn(`[API] wan2.5-i2v-preview 模型：480P 可能输出非标准分辨率（如 842x747），这是 API 根据输入图片尺寸自动调整的结果。如需标准分辨率，建议使用 720P 或 1080P。`);
+    }
 
     const body = {
       model: 'wan2.5-i2v-preview',
@@ -178,6 +211,7 @@ export class BailianAPIClient {
       },
       parameters: {
         resolution,
+        duration: videoDuration,  // 添加duration参数
         prompt_extend: true,
         audio: true,  // 启用音频
         ...(n > 1 ? { n: n } : {})  // 如果 n > 1，尝试传递 n 参数（API 可能不支持）
@@ -188,6 +222,7 @@ export class BailianAPIClient {
       url,
       model: 'wan2.5-i2v-preview',
       resolution,
+      duration: videoDuration,
       audio: true,
       n: n,
       prompt: prompt.substring(0, 100),
@@ -346,6 +381,7 @@ export class BailianAPIClient {
     }
 
     const buffer = await response.arrayBuffer();
+    await backupExistingFile(savePath);
     await fs.promises.writeFile(savePath, Buffer.from(buffer));
   }
 
@@ -550,14 +586,33 @@ export class BailianAPIClient {
    * 首尾帧生成视频
    * 使用 wan2.2-kf2v-flash 模型
    * 参考：https://help.aliyun.com/zh/dashscope/developer-reference/api-details-9
+   * 
+   * 注意：wan2.2-kf2v-flash 模型对 480P 的支持可能不完整，实际输出可能是 720P (1280x720)
    */
   async firstLastFrameToVideo(
     firstFrameUrl: string,  // Base64 Data URL 格式的首帧（data:image/png;base64,...）
     lastFrameUrl: string,   // Base64 Data URL 格式的尾帧（data:image/png;base64,...）
     prompt: string,          // 视频描述
-    resolution: string = '720P'  // 分辨率：720P, 1080P 等
+    resolution: string = '720P'  // 分辨率：480P, 720P, 1080P
   ): Promise<string> {
     const url = `${this.baseUrl}/image2video/video-synthesis`;
+
+    // 验证分辨率参数（wan2.2-kf2v-flash 支持：480P、720P、1080P）
+    // 注意：480P 可能实际输出为 720P (1280x720)，这是 API 的限制
+    const validResolutions = ['480P', '720P', '1080P'];
+    const normalizedResolution = resolution.toUpperCase();
+    let finalResolution = validResolutions.includes(normalizedResolution) 
+      ? normalizedResolution 
+      : '720P'; // 默认值
+    
+    // 警告：480P 可能实际输出为 720P
+    if (finalResolution === '480P') {
+      console.warn(`[API] wan2.2-kf2v-flash 模型：480P 可能实际输出为 720P (1280x720)。如需真正的 480P，建议使用首帧生成视频功能。`);
+    }
+    
+    if (normalizedResolution !== finalResolution) {
+      console.warn(`[API] 无效的分辨率值 "${resolution}"，使用默认值 720P。有效值：${validResolutions.join(', ')}`);
+    }
 
     const body = {
       model: 'wan2.2-kf2v-flash',
@@ -567,7 +622,7 @@ export class BailianAPIClient {
         prompt: prompt
       },
       parameters: {
-        resolution: resolution,
+        resolution: finalResolution,
         prompt_extend: true
       }
     };
@@ -575,10 +630,12 @@ export class BailianAPIClient {
     console.log('[API] 首尾帧生成视频请求:', {
       url,
       model: 'wan2.2-kf2v-flash',
-      resolution,
+      resolution: finalResolution,
+      originalResolution: resolution,
       prompt: prompt.substring(0, 100),
       firstFrameFormat: firstFrameUrl.startsWith('data:') ? 'base64' : 'url',
-      lastFrameFormat: lastFrameUrl.startsWith('data:') ? 'base64' : 'url'
+      lastFrameFormat: lastFrameUrl.startsWith('data:') ? 'base64' : 'url',
+      requestBody: JSON.stringify(body, null, 2)
     });
 
     const response = await fetch(url, {

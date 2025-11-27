@@ -34,7 +34,7 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
    * 参考：https://bailian.console.aliyun.com/?tab=api#/api/?type=model&url=2862677
    */
   async imageToVideo(imagePath: string, prompt: string, options?: VideoOptions, n?: number): Promise<string> {
-    console.log('[通义万相] 图生视频请求:', { imagePath, prompt, n });
+    console.log('[通义万相] 图生视频请求:', { imagePath, prompt, duration: options?.duration, n });
 
     // 检查文件是否存在
     if (!fs.existsSync(imagePath)) {
@@ -46,22 +46,22 @@ export class TongyiWanxiangProvider implements VideoAIProvider {
     console.log('[通义万相] 图片已转换为 base64，大小:', imageBase64.length, '字符');
 
     // 调用 API，使用 base64 格式的图片
-    // 注意：API 不支持自定义 duration 参数，使用默认时长
     const resolution = options?.resolution || '1080P';
     const numOutputs = n !== undefined ? n : 1;
-    return await this.client.imageToVideo(imageBase64, prompt, resolution, numOutputs);
+    const duration = options?.duration;
+    return await this.client.imageToVideo(imageBase64, prompt, resolution, numOutputs, duration);
   }
 
   /**
    * 纯文生视频（无首帧）
-   * 注意：API 不支持自定义 duration 参数，使用默认时长
    */
   async textToVideo(prompt: string, options?: VideoOptions, n?: number): Promise<string> {
-    console.log('[通义万相] 文生视频请求:', { prompt, resolution: options?.resolution, n });
+    console.log('[通义万相] 文生视频请求:', { prompt, resolution: options?.resolution, duration: options?.duration, n });
 
     const size = options?.resolution || '832*480';
     const numOutputs = n !== undefined ? n : 1;
-    return await this.client.textToVideo(prompt, size, numOutputs);
+    const duration = options?.duration;
+    return await this.client.textToVideo(prompt, size, numOutputs, duration);
   }
 
   /**

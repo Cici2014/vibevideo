@@ -12,7 +12,7 @@ import { StoryboardParser } from '../core/StoryboardParser';
 import { SubjectManager } from '../core/SubjectManager';
 import { SceneManager } from '../core/SceneManager';
 import { ConfigManager } from '../core/ConfigManager';
-import { fileExists, readFile, ensureDir } from '../utils/fileSystem';
+import { fileExists, readFile, ensureDir, backupExistingFile } from '../utils/fileSystem';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
 /**
@@ -199,6 +199,7 @@ async function handleComposeResult(
     // 本地文件路径：直接复制文件
     const sourcePath = path.isAbsolute(result) ? result : path.join(workspaceRoot, result);
     await ensureDir(path.dirname(savePath));
+    await backupExistingFile(savePath);
     await fs.promises.copyFile(sourcePath, savePath);
     console.log(`[图生视频] 已复制本地文件: ${sourcePath} → ${savePath}`);
   } else {
@@ -414,13 +415,17 @@ export async function generateSingleVideo(
     }
   }
 
-  // 验证并获取时长（优先使用分镜描述中的时长，如果不符合要求则使用配置中的默认时长）
+  // 验证并获取时长
+  // 优先级：分镜描述中的时长 > settings配置的默认时长
+  // 如果分镜脚本中没有写明时长，使用settings中配置的默认时长
   let duration = storyboard.duration;
   if (!duration) {
+    // 分镜脚本中未指定时长，使用settings配置的默认时长
     const defaultDuration = configManager.getDefaultDuration();
-    console.warn(`[警告] 分镜 ${storyboard.id} 未指定时长，使用配置中的默认时长 ${defaultDuration}秒`);
+    console.log(`[信息] 分镜 ${storyboard.id} 未指定时长，使用配置中的默认时长 ${defaultDuration}秒`);
     duration = defaultDuration;
   } else if (duration !== 5 && duration !== 10) {
+    // 分镜脚本中的时长不符合规范（只能是5秒或10秒），使用settings配置的默认时长
     const defaultDuration = configManager.getDefaultDuration();
     console.warn(`[警告] 分镜 ${storyboard.id} 的时长 ${duration}秒 不符合规范（只能是5秒或10秒），使用配置中的默认时长 ${defaultDuration}秒`);
     duration = defaultDuration;

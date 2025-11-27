@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { StoryboardParser } from '../core/StoryboardParser';
 import { listFiles, fileExists, copyFile, ensureDir } from '../utils/fileSystem';
+import { isAlternativeResourceFileName } from '../utils/resourceNaming';
 import { Storyboard } from '../types';
 
 /**
@@ -26,6 +27,10 @@ export class ResourceTreeItem extends vscode.TreeItem {
     public readonly relatedPaths?: FirstFrameResourcePaths
   ) {
     super(label, collapsibleState);
+
+    if (resourcePath) {
+      this.resourceUri = vscode.Uri.file(resourcePath);
+    }
 
     // 设置图标
     if (resourceType === 'storyboard') {
@@ -74,10 +79,11 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'firstFrameImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-') || fileName.includes('-edited')) {
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
           this.contextValue = 'firstFrameImageAlternative';
         } else {
           this.contextValue = 'firstFrameImage';
@@ -92,14 +98,22 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'clip') {
       this.iconPath = new vscode.ThemeIcon('play');
-      this.contextValue = 'clip';
-      // 点击视频片段时打开视频文件（会显示音频提示）
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
+          this.contextValue = 'clipAlternative';
+        } else {
+          this.contextValue = 'clip';
+        }
         this.command = {
           command: 'vibevideo.openVideoClip',
           title: '打开视频',
           arguments: [resourcePath]
         };
+      } else {
+        this.contextValue = 'clip';
       }
     } else if (resourceType === 'stats') {
       this.iconPath = new vscode.ThemeIcon('graph');
@@ -127,10 +141,11 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'subjectImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-') || fileName.includes('-edited')) {
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
           this.contextValue = 'subjectImageAlternative';
         } else {
           this.contextValue = 'subjectImage';
@@ -167,10 +182,11 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'sceneImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      // 根据文件名是否有 .o- 或 -edited 后缀设置不同的 contextValue
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
         const fileName = path.basename(resourcePath);
-        if (fileName.includes('.o-') || fileName.includes('-edited')) {
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
           this.contextValue = 'sceneImageAlternative';
         } else {
           this.contextValue = 'sceneImage';
@@ -185,13 +201,22 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'referenceImage') {
       this.iconPath = new vscode.ThemeIcon('file-media');
-      this.contextValue = 'referenceImage';
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
+          this.contextValue = 'referenceImageAlternative';
+        } else {
+          this.contextValue = 'referenceImage';
+        }
         this.command = {
           command: 'vscode.open',
           title: '打开参考图',
           arguments: [vscode.Uri.file(resourcePath)]
         };
+      } else {
+        this.contextValue = 'referenceImage';
       }
     } else if (resourceType === 'script') {
       this.iconPath = new vscode.ThemeIcon('book');
@@ -205,14 +230,22 @@ export class ResourceTreeItem extends vscode.TreeItem {
       }
     } else if (resourceType === 'outputVideo') {
       this.iconPath = new vscode.ThemeIcon('play-circle');
-      this.contextValue = 'outputVideo';
-      // 点击视频初稿文件时打开视频
+      // 根据文件名是否有 .o-、-edited 或 - 副本 后缀设置不同的 contextValue
       if (resourcePath) {
+        const fileName = path.basename(resourcePath);
+        const isAlternative = isAlternativeResourceFileName(fileName);
+        if (isAlternative) {
+          this.contextValue = 'outputVideoAlternative';
+        } else {
+          this.contextValue = 'outputVideo';
+        }
         this.command = {
           command: 'vibevideo.openVideoClip',
           title: '打开视频初稿',
           arguments: [resourcePath]
         };
+      } else {
+        this.contextValue = 'outputVideo';
       }
     }
   }

@@ -10,6 +10,7 @@ import { ProviderManager } from '../providers/ProviderManager';
 import { ConfigManager } from '../core/ConfigManager';
 import { Scene } from '../types';
 import { imagesToBase64 } from '../utils/imageEncoder';
+import { backupExistingFile } from '../utils/fileSystem';
 
 /**
  * 生成所有场景图
@@ -267,6 +268,7 @@ async function generateSingleScene(
       // 本地文件路径：直接复制文件
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       const sourcePath = path.isAbsolute(resultUrl) ? resultUrl : (workspaceRoot ? path.join(workspaceRoot, resultUrl) : resultUrl);
+      await backupExistingFile(scene.imagePath);
       await fs.promises.copyFile(sourcePath, scene.imagePath);
       console.log(`[场景] 已复制本地文件: ${sourcePath} → ${scene.imagePath}`);
       console.log(`✓ 场景生成完成: ${scene.id}`);

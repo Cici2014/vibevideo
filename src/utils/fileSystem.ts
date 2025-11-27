@@ -46,6 +46,30 @@ export async function fileExists(filePath: string): Promise<boolean> {
 }
 
 /**
+ * 如果目标文件已存在，则将其重命名为 .o-n 备份格式
+ */
+export async function backupExistingFile(filePath: string): Promise<string | undefined> {
+  if (!(await fileExists(filePath))) {
+    return undefined;
+  }
+
+  const dir = path.dirname(filePath);
+  const ext = path.extname(filePath);
+  const baseName = path.basename(filePath, ext);
+
+  let index = 1;
+  let backupPath = path.join(dir, `${baseName}.o-${index}${ext}`);
+
+  while (await fileExists(backupPath)) {
+    index++;
+    backupPath = path.join(dir, `${baseName}.o-${index}${ext}`);
+  }
+
+  await fs.promises.rename(filePath, backupPath);
+  return backupPath;
+}
+
+/**
  * 列出目录中的所有文件
  */
 export async function listFiles(dirPath: string, extension?: string): Promise<string[]> {

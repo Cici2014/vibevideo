@@ -13,7 +13,7 @@ import { StoryboardParser } from '../core/StoryboardParser';
 import { ResourceTreeProvider } from '../ui/ResourceTreeProvider';
 import { ConfigManager } from '../core/ConfigManager';
 import { Storyboard } from '../types';
-import { writeFile, readFile, fileExists, listFiles } from '../utils/fileSystem';
+import { writeFile, readFile, fileExists, listFiles, backupExistingFile } from '../utils/fileSystem';
 import { imagesToBase64 } from '../utils/imageEncoder';
 
 /**
@@ -738,6 +738,7 @@ async function generateSingleFirstFrame(
   } else if (path.isAbsolute(result) || result.startsWith('./') || result.startsWith('../')) {
     // 本地文件路径：直接复制文件
     const sourcePath = path.isAbsolute(result) ? result : path.join(workspaceRoot, result);
+    await backupExistingFile(savePath);
     await fs.promises.copyFile(sourcePath, savePath);
     console.log(`[首帧生成] 已复制本地文件: ${sourcePath} → ${savePath}`);
   } else {

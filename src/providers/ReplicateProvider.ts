@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { VideoAIProvider, VideoOptions, ImageOptions, TaskStatus, ReplicateConfig } from './types';
 import { imageToBase64 } from '../utils/imageEncoder';
+import { backupExistingFile } from '../utils/fileSystem';
 
 // Replicate SDK 类型定义（如果未安装包，使用动态导入）
 let Replicate: any;
@@ -277,6 +278,7 @@ export class ReplicateProvider implements VideoAIProvider {
     }
 
     const buffer = await response.arrayBuffer();
+    await backupExistingFile(savePath);
     await fs.promises.writeFile(savePath, Buffer.from(buffer));
 
     console.log('[Replicate] 资源下载完成:', savePath);

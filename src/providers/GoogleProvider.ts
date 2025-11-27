@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { VideoAIProvider, VideoOptions, ImageOptions, TaskStatus, GoogleConfig } from './types';
 import { imageToBase64 } from '../utils/imageEncoder';
+import { backupExistingFile } from '../utils/fileSystem';
 
 /**
  * Google 图像生成响应
@@ -808,6 +809,7 @@ export class GoogleProvider implements VideoAIProvider {
 
     // 如果 taskId 是文件路径，直接复制
     if (fs.existsSync(taskId) && !taskId.startsWith('http')) {
+      await backupExistingFile(savePath);
       await fs.promises.copyFile(taskId, savePath);
       console.log('[Google] 资源复制完成:', savePath);
       return;
@@ -836,6 +838,7 @@ export class GoogleProvider implements VideoAIProvider {
     }
 
     const buffer = await response.arrayBuffer();
+    await backupExistingFile(savePath);
     await fs.promises.writeFile(savePath, Buffer.from(buffer));
 
     console.log('[Google] 资源下载完成:', savePath);

@@ -12,6 +12,7 @@ import { ConfigManager } from './core/ConfigManager';
 import { SubjectManager } from './core/SubjectManager';
 import { SceneManager } from './core/SceneManager';
 import { ResourceTreeProvider, ResourceTreeItem } from './ui/ResourceTreeProvider';
+import { AlternativeResourceDecorationProvider } from './ui/AlternativeResourceDecorationProvider';
 import { ProviderManager } from './providers/ProviderManager';
 import { configureVideoAI, showCurrentConfig } from './commands/configureAPI';
 import { generateAllVideos, generateSingleVideoFromClip, generateSingleVideo } from './commands/generateVideos';
@@ -50,6 +51,8 @@ export function activate(context: vscode.ExtensionContext) {
   }
   
   resourceTreeProvider = new ResourceTreeProvider(workspaceRoot);
+  const decorationProvider = new AlternativeResourceDecorationProvider();
+  context.subscriptions.push(vscode.window.registerFileDecorationProvider(decorationProvider));
 
   // 监听配置变化，当 provider 或相关配置改变时重置 Provider 缓存
   const configChangeDisposable = vscode.workspace.onDidChangeConfiguration((e) => {
@@ -898,6 +901,23 @@ export function activate(context: vscode.ExtensionContext) {
     return item.resourceType ? imageTypes.includes(item.resourceType) : false;
   };
 
+  // 判断资源项是否为视频类型
+  const isVideoResource = (item: ResourceTreeItem): boolean => {
+    const videoTypes = ['clip', 'outputVideo'];
+    return item.resourceType ? videoTypes.includes(item.resourceType) : false;
+  };
+
+  // 判断资源项是否为 Markdown 文件类型
+  const isMarkdownResource = (item: ResourceTreeItem): boolean => {
+    const markdownTypes = ['firstFrameMarkdown', 'subjectMarkdown', 'sceneMarkdown', 'script', 'storyboard'];
+    return item.resourceType ? markdownTypes.includes(item.resourceType) : false;
+  };
+
+  // 判断资源项是否为可复制的文件类型（图片、视频或 Markdown）
+  const isCopyableResource = (item: ResourceTreeItem): boolean => {
+    return isImageResource(item) || isVideoResource(item) || isMarkdownResource(item);
+  };
+
   const deleteResourceCommand = vscode.commands.registerCommand(
     'vibevideo.deleteResource',
     async (items: ResourceTreeItem | ResourceTreeItem[]) => {
@@ -1023,10 +1043,14 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // 检查是否是图片类型
-      if (item.resourceType !== 'firstFrameImage' && 
-          item.resourceType !== 'subjectImage' && 
-          item.resourceType !== 'sceneImage') {
+      // 检查是否是图片类型（包括参考图）
+      const allowedTypes = [
+        'firstFrameImage',
+        'subjectImage',
+        'sceneImage',
+        'referenceImage'
+      ];
+      if (!item.resourceType || !allowedTypes.includes(item.resourceType)) {
         vscode.window.showErrorMessage('只能对图片文件执行此操作');
         return;
       }
@@ -1152,15 +1176,18 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       // 检查是否是图片类型（包括备选图片和编辑后的图片）
-      const allowedTypes = [
+      // 通过 contextValue 判断，因为 referenceImage 类型也可能有备选状态
+      const allowedContextValues = [
         'firstFrameImage',
         'firstFrameImageAlternative',
         'subjectImage',
         'subjectImageAlternative',
         'sceneImage',
-        'sceneImageAlternative'
+        'sceneImageAlternative',
+        'referenceImage',
+        'referenceImageAlternative'
       ];
-      if (!item.resourceType || !allowedTypes.includes(item.resourceType)) {
+      if (!item.contextValue || !allowedContextValues.includes(item.contextValue)) {
         vscode.window.showErrorMessage('只能对图片文件执行此操作');
         return;
       }
@@ -1174,11 +1201,13 @@ export function activate(context: vscode.ExtensionContext) {
         let originalFileName: string;
         let originalPath: string;
 
-        // 检查文件名格式：支持 .o-n 和 -edited 两种格式
+        // 检查文件名格式：支持 .o-n、-edited 和 - 副本 三种格式
         // 格式1: 文件名.o-n.扩展名 (例如: 01-opening-first-frame.o-1.png)
         const alternativeMatch = currentFileName.match(/^(.+)\.o-(\d+)(\.\w+)$/);
         // 格式2: 文件名-edited.扩展名 或 文件名-edited-n.扩展名 (例如: 01-opening-first-frame-edited.png)
         const editedMatch = currentFileName.match(/^(.+)-edited(?:-(\d+))?(\.\w+)$/);
+        // 格式3: 文件名 - 副本.扩展名 或 文件名 - 副本 (n).扩展名 (例如: name - 副本.png 或 name - 副本 (2).png)
+        const copyMatch = currentFileName.match(/^(.+) - 副本(?: \((\d+)\))?(\.\w+)$/);
 
         if (alternativeMatch) {
           // 处理 .o-n 格式
@@ -1192,8 +1221,14 @@ export function activate(context: vscode.ExtensionContext) {
           ext = editedMatch[3];
           originalFileName = baseName + ext;
           originalPath = path.join(currentDir, originalFileName);
+        } else if (copyMatch) {
+          // 处理 - 副本 格式
+          baseName = copyMatch[1];
+          ext = copyMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
         } else {
-          vscode.window.showWarningMessage('该文件不是备选文件或编辑后的文件');
+          vscode.window.showWarningMessage('该文件不是备选文件、编辑后的文件或副本文件');
           return;
         }
 
@@ -1251,6 +1286,234 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // 不选中视频：将视频文件标记为备选
+  const deselectVideoCommand = vscode.commands.registerCommand(
+    'vibevideo.deselectVideo',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择视频项');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是视频类型（通过 contextValue 判断，因为可能有备选状态）
+      const allowedContextValues = ['clip', 'outputVideo'];
+      if (!item.contextValue || !allowedContextValues.includes(item.contextValue)) {
+        vscode.window.showErrorMessage('只能对视频文件执行此操作');
+        return;
+      }
+
+      try {
+        const currentDir = path.dirname(resourcePath);
+        const currentFileName = path.basename(resourcePath);
+        const ext = path.extname(currentFileName);
+        const baseName = path.basename(currentFileName, ext);
+
+        // 检查文件名是否已经有 .o- 后缀
+        if (currentFileName.includes('.o-')) {
+          vscode.window.showWarningMessage('该文件已经是备选文件，无需再次标记');
+          return;
+        }
+
+        // 查找当前目录中已有的 .o-n 文件，找到最大的 n 和最小的 n
+        const files = await fs.promises.readdir(currentDir);
+        let maxN = 0;
+        let minN = Infinity;
+        // 转义 baseName 和 ext 中的特殊字符，用于正则表达式
+        const escapedBaseName = baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedExt = ext.replace('.', '\\.');
+        const alternativePattern = new RegExp(`^${escapedBaseName}\\.o-(\\d+)${escapedExt}$`);
+        const alternativeFiles: Array<{ n: number; fileName: string; path: string }> = [];
+        
+        for (const file of files) {
+          const match = file.match(alternativePattern);
+          if (match) {
+            const n = parseInt(match[1], 10);
+            if (n > maxN) {
+              maxN = n;
+            }
+            if (n < minN) {
+              minN = n;
+            }
+            alternativeFiles.push({
+              n,
+              fileName: file,
+              path: path.join(currentDir, file)
+            });
+          }
+        }
+
+        // 生成新的文件名（n 自增），如果文件已存在则继续递增
+        let newN = maxN + 1;
+        let newFileName = `${baseName}.o-${newN}${ext}`;
+        let newPath = path.join(currentDir, newFileName);
+        
+        // 如果新文件名已存在，继续递增直到找到不存在的文件名
+        while (await fileExists(newPath)) {
+          newN++;
+          newFileName = `${baseName}.o-${newN}${ext}`;
+          newPath = path.join(currentDir, newFileName);
+        }
+
+        // 1. 将当前文件重命名为备选文件
+        await renameFile(resourcePath, newPath);
+        
+        // 2. 如果有备选文件，选择最小的 n（如 .o-1）提升为选中状态
+        const originalPath = path.join(currentDir, `${baseName}${ext}`);
+        
+        if (alternativeFiles.length > 0) {
+          // 找到最小的 n
+          const smallestAlternative = alternativeFiles.reduce((prev, curr) => 
+            curr.n < prev.n ? curr : prev
+          );
+          
+          // 检查原文件名是否已存在（理论上不应该存在，因为刚被重命名）
+          if (await fileExists(originalPath)) {
+            // 如果原文件名已存在，说明有冲突，跳过提升操作
+            vscode.window.showInformationMessage(`已标记为备选: ${newFileName}`);
+          } else {
+            // 检查最小的备选文件是否存在
+            if (await fileExists(smallestAlternative.path)) {
+              // 将最小的备选文件提升为选中状态
+              await renameFile(smallestAlternative.path, originalPath);
+              vscode.window.showInformationMessage(`已标记为备选: ${newFileName}，已选中: ${smallestAlternative.fileName} -> ${baseName}${ext}`);
+            } else {
+              vscode.window.showWarningMessage(`备选文件 ${smallestAlternative.fileName} 不存在`);
+            }
+          }
+        } else {
+          vscode.window.showInformationMessage(`已标记为备选: ${newFileName}`);
+        }
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`操作失败: ${error.message || error}`);
+      }
+    }
+  );
+
+  // 选中视频：去掉 .o-n 或 -edited 后缀
+  const selectVideoCommand = vscode.commands.registerCommand(
+    'vibevideo.selectVideo',
+    async (item: ResourceTreeItem) => {
+      if (!item) {
+        vscode.window.showErrorMessage('请选择视频项');
+        return;
+      }
+
+      const resourcePath = item.resourcePath;
+      if (!resourcePath) {
+        vscode.window.showErrorMessage('该资源项没有文件路径');
+        return;
+      }
+
+      // 检查是否是视频类型（包括备选视频，通过 contextValue 判断）
+      const allowedContextValues = ['clip', 'clipAlternative', 'outputVideo', 'outputVideoAlternative'];
+      if (!item.contextValue || !allowedContextValues.includes(item.contextValue)) {
+        vscode.window.showErrorMessage('只能对视频文件执行此操作');
+        return;
+      }
+
+      try {
+        const currentDir = path.dirname(resourcePath);
+        const currentFileName = path.basename(resourcePath);
+
+        let baseName: string;
+        let ext: string;
+        let originalFileName: string;
+        let originalPath: string;
+
+        // 检查文件名格式：支持 .o-n、-edited 和 - 副本 三种格式
+        // 格式1: 文件名.o-n.扩展名 (例如: 01-opening.mp4.o-1.mp4)
+        const alternativeMatch = currentFileName.match(/^(.+)\.o-(\d+)(\.\w+)$/);
+        // 格式2: 文件名-edited.扩展名 或 文件名-edited-n.扩展名 (例如: 01-opening-edited.mp4)
+        const editedMatch = currentFileName.match(/^(.+)-edited(?:-(\d+))?(\.\w+)$/);
+        // 格式3: 文件名 - 副本.扩展名 或 文件名 - 副本 (n).扩展名 (例如: name - 副本.mp4 或 name - 副本 (2).mp4)
+        const copyMatch = currentFileName.match(/^(.+) - 副本(?: \((\d+)\))?(\.\w+)$/);
+
+        if (alternativeMatch) {
+          // 处理 .o-n 格式
+          baseName = alternativeMatch[1];
+          ext = alternativeMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
+        } else if (editedMatch) {
+          // 处理 -edited 格式
+          baseName = editedMatch[1];
+          ext = editedMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
+        } else if (copyMatch) {
+          // 处理 - 副本 格式
+          baseName = copyMatch[1];
+          ext = copyMatch[3];
+          originalFileName = baseName + ext;
+          originalPath = path.join(currentDir, originalFileName);
+        } else {
+          vscode.window.showWarningMessage('该文件不是备选文件、编辑后的文件或副本文件');
+          return;
+        }
+
+        // 查找当前目录中已有的 .o-n 文件，找到最大的 n（排除当前要选中的文件）
+        const files = await fs.promises.readdir(currentDir);
+        let maxN = 0;
+        const alternativePattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.o-(\\d+)\\${ext.replace('.', '\\.')}$`);
+        const currentFileNameOnly = path.basename(resourcePath);
+        
+        for (const file of files) {
+          // 排除当前要选中的文件（通过文件名比较）
+          if (file === currentFileNameOnly) {
+            continue;
+          }
+          
+          const match = file.match(alternativePattern);
+          if (match) {
+            const n = parseInt(match[1], 10);
+            if (n > maxN) {
+              maxN = n;
+            }
+          }
+        }
+
+        // 如果原文件名已存在，先将其重命名为备选文件（n 自增）
+        if (await fileExists(originalPath)) {
+          // 生成新的文件名（n 自增），如果文件已存在则继续递增
+          let newN = maxN + 1;
+          let originalAsAlternativePath = path.join(currentDir, `${baseName}.o-${newN}${ext}`);
+          
+          // 如果新文件名已存在，继续递增直到找到不存在的文件名
+          while (await fileExists(originalAsAlternativePath)) {
+            newN++;
+            originalAsAlternativePath = path.join(currentDir, `${baseName}.o-${newN}${ext}`);
+          }
+          
+          // 将原文件重命名为备选文件
+          await renameFile(originalPath, originalAsAlternativePath);
+        }
+
+        // 将当前备选文件或编辑后的文件重命名为原文件名（选中状态）
+        await renameFile(resourcePath, originalPath);
+        
+        // 刷新资源树
+        resourceTreeProvider?.refresh();
+        
+        // 打开选中的视频
+        const uri = vscode.Uri.file(originalPath);
+        await vscode.commands.executeCommand('vibevideo.openVideoClip', originalPath);
+        
+        vscode.window.showInformationMessage(`已选中: ${originalFileName}`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`操作失败: ${error.message || error}`);
+      }
+    }
+  );
+
   // 图像编辑命令
   const editImageCommand = vscode.commands.registerCommand(
     'vibevideo.editImage',
@@ -1275,12 +1538,23 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  // 复制图片命令
+  // 复制资源命令（支持图片和视频）
   const copyImageCommand = vscode.commands.registerCommand(
     'vibevideo.copyImage',
-    async (item: ResourceTreeItem) => {
+    async (item?: ResourceTreeItem) => {
+      console.log('[Vibe Video] copyImageCommand called, item:', item);
+      
+      // 如果没有传入 item，尝试从树视图的选中项获取
       if (!item) {
-        vscode.window.showErrorMessage('请选择要复制的图片项');
+        const selection = treeView.selection;
+        console.log('[Vibe Video] treeView.selection:', selection);
+        if (selection && selection.length > 0) {
+          item = selection[0];
+        }
+      }
+
+      if (!item) {
+        vscode.window.showErrorMessage('请选择要复制的资源项');
         return;
       }
 
@@ -1290,9 +1564,9 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // 检查是否是图片类型
-      if (!isImageResource(item)) {
-        vscode.window.showErrorMessage('只能复制图片类型的资源');
+      // 检查是否是图片或视频类型
+      if (!isCopyableResource(item)) {
+        vscode.window.showErrorMessage('只能复制图片、视频或 Markdown 类型的资源');
         return;
       }
 
@@ -1305,17 +1579,69 @@ export function activate(context: vscode.ExtensionContext) {
       // 存储复制的文件路径
       copiedImagePath = resourcePath;
       const fileName = path.basename(resourcePath);
-      vscode.window.showInformationMessage(`已复制: ${fileName}`);
+      let resourceType = '文件';
+      if (isImageResource(item)) {
+        resourceType = '图片';
+      } else if (isVideoResource(item)) {
+        resourceType = '视频';
+      } else if (isMarkdownResource(item)) {
+        resourceType = 'Markdown';
+      }
+      vscode.window.showInformationMessage(`已复制${resourceType}: ${fileName}`);
     }
   );
 
-  // 粘贴图片命令
+  // 获取目标目录（根据资源项类型）
+  const getTargetDirectory = (item: ResourceTreeItem, workspaceRoot: string | undefined): string | undefined => {
+    if (!workspaceRoot) {
+      return undefined;
+    }
+
+    // 如果是目录节点（分组节点），根据 contextValue 或 label 确定目录
+    if (!item.resourcePath) {
+      const contextValue = item.contextValue;
+      const label = item.label;
+
+      if (contextValue === 'referenceImagesRoot' || label.startsWith('📸')) {
+        return path.join(workspaceRoot, 'ref-img');
+      } else if (contextValue === 'firstFramesRoot' || label.startsWith('🖼️')) {
+        return path.join(workspaceRoot, 'first-frames');
+      } else if (contextValue === 'subjectsRoot' || label.startsWith('🎭')) {
+        return path.join(workspaceRoot, 'subjects');
+      } else if (contextValue === 'scenesRoot' || label.startsWith('🌆')) {
+        return path.join(workspaceRoot, 'scenes');
+      } else if (contextValue === 'storyboardsRoot' || label.startsWith('📝')) {
+        return path.join(workspaceRoot, 'storyboards');
+      } else if (contextValue === 'clipsRoot' || label.startsWith('🎬')) {
+        return path.join(workspaceRoot, 'video-clip');
+      } else if (label.startsWith('🎥')) {
+        return path.join(workspaceRoot, 'output');
+      } else if (label.startsWith('📄')) {
+        return workspaceRoot; // 剧本目录是项目根目录
+      }
+    } else {
+      // 如果是文件节点，返回文件所在目录
+      return path.dirname(item.resourcePath);
+    }
+
+    return undefined;
+  };
+
+  // 粘贴资源命令（支持图片和视频）
   const pasteImageCommand = vscode.commands.registerCommand(
     'vibevideo.pasteImage',
-    async (item: ResourceTreeItem) => {
+    async (item?: ResourceTreeItem) => {
       if (!copiedImagePath) {
-        vscode.window.showWarningMessage('没有可粘贴的内容，请先复制一个图片');
+        vscode.window.showWarningMessage('没有可粘贴的内容，请先复制一个文件');
         return;
+      }
+
+      // 如果没有传入 item，尝试从树视图的选中项获取
+      if (!item) {
+        const selection = treeView.selection;
+        if (selection && selection.length > 0) {
+          item = selection[0];
+        }
       }
 
       if (!item) {
@@ -1323,15 +1649,9 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      const targetResourcePath = item.resourcePath;
-      if (!targetResourcePath) {
-        vscode.window.showErrorMessage('目标位置没有文件路径');
-        return;
-      }
-
-      // 检查是否是图片类型
-      if (!isImageResource(item)) {
-        vscode.window.showErrorMessage('只能粘贴到图片类型的资源位置');
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('请先打开一个工作区文件夹');
         return;
       }
 
@@ -1342,14 +1662,97 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      // 判断源文件类型
+      const sourceExt = path.extname(copiedImagePath).toLowerCase();
+      const isSourceImage = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'].includes(sourceExt);
+      const isSourceVideo = ['.mp4', '.mov', '.avi', '.mkv', '.webm'].includes(sourceExt);
+      const isSourceMarkdown = ['.md', '.markdown'].includes(sourceExt);
+
+      if (!isSourceImage && !isSourceVideo && !isSourceMarkdown) {
+        vscode.window.showErrorMessage('不支持的文件类型，只能粘贴图片、视频或 Markdown 文件');
+        return;
+      }
+
+      // 获取目标目录
+      const targetDir = getTargetDirectory(item, workspaceRoot);
+      if (!targetDir) {
+        vscode.window.showErrorMessage('无法确定目标目录');
+        return;
+      }
+
+      // 如果是文件节点，检查目标类型是否匹配
+      if (item.resourcePath) {
+        const targetIsImage = isImageResource(item);
+        const targetIsVideo = isVideoResource(item);
+        const targetIsMarkdown = isMarkdownResource(item);
+        
+        // 如果目标既不是图片也不是视频也不是 Markdown，不允许粘贴
+        if (!targetIsImage && !targetIsVideo && !targetIsMarkdown) {
+          vscode.window.showErrorMessage('只能粘贴到图片、视频或 Markdown 类型的资源位置');
+          return;
+        }
+        
+        // 如果目标有明确的资源类型，检查是否匹配
+        if (targetIsImage && !isSourceImage) {
+          vscode.window.showErrorMessage('只能将图片粘贴到图片类型的资源位置或图片目录');
+          return;
+        }
+        if (targetIsVideo && !isSourceVideo) {
+          vscode.window.showErrorMessage('只能将视频粘贴到视频类型的资源位置或视频目录');
+          return;
+        }
+        if (targetIsMarkdown && !isSourceMarkdown) {
+          vscode.window.showErrorMessage('只能将 Markdown 文件粘贴到 Markdown 类型的资源位置或相应目录');
+          return;
+        }
+      } else {
+        // 如果是目录节点，检查目录类型是否匹配
+        const contextValue = item.contextValue;
+        const label = item.label;
+        
+        // 图片目录
+        const isImageDir = contextValue === 'referenceImagesRoot' || 
+                          contextValue === 'firstFramesRoot' || 
+                          contextValue === 'subjectsRoot' || 
+                          contextValue === 'scenesRoot' ||
+                          label.startsWith('📸') || 
+                          label.startsWith('🖼️') || 
+                          label.startsWith('🎭') || 
+                          label.startsWith('🌆');
+        
+        // 视频目录
+        const isVideoDir = contextValue === 'clipsRoot' || 
+                          label.startsWith('🎬') || 
+                          label.startsWith('🎥');
+        
+        // Markdown 目录（分镜脚本、剧本等）
+        const isMarkdownDir = contextValue === 'storyboardsRoot' || 
+                              label.startsWith('📝') || 
+                              label.startsWith('📄');
+        
+        if (isImageDir && !isSourceImage) {
+          vscode.window.showErrorMessage('只能将图片粘贴到图片目录');
+          return;
+        }
+        if (isVideoDir && !isSourceVideo) {
+          vscode.window.showErrorMessage('只能将视频粘贴到视频目录');
+          return;
+        }
+        if (isMarkdownDir && !isSourceMarkdown) {
+          vscode.window.showErrorMessage('只能将 Markdown 文件粘贴到 Markdown 目录');
+          return;
+        }
+      }
+
       try {
-        // 获取目标目录（与目标文件相同的目录）
-        const targetDir = path.dirname(targetResourcePath);
         const sourceFileName = path.basename(copiedImagePath);
         
         // 生成唯一的文件名
         const uniqueFileName = await generateUniqueFileName(targetDir, sourceFileName);
         const targetPath = path.join(targetDir, uniqueFileName);
+
+        // 确保目标目录存在
+        await ensureDir(targetDir);
 
         // 复制文件
         await copyFile(copiedImagePath, targetPath);
@@ -1357,7 +1760,8 @@ export function activate(context: vscode.ExtensionContext) {
         // 刷新资源树
         resourceTreeProvider?.refresh();
 
-        vscode.window.showInformationMessage(`已粘贴: ${uniqueFileName}`);
+        const resourceType = isSourceImage ? '图片' : '视频';
+        vscode.window.showInformationMessage(`已粘贴${resourceType}: ${uniqueFileName}`);
       } catch (error: any) {
         vscode.window.showErrorMessage(`粘贴失败: ${error.message || error}`);
       }
@@ -1397,6 +1801,8 @@ export function activate(context: vscode.ExtensionContext) {
     deleteResourceCommand,
     deselectImageCommand,
     selectImageCommand,
+    deselectVideoCommand,
+    selectVideoCommand,
     editImageCommand,
     composeVideoCommand,
     copyImageCommand,
