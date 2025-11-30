@@ -332,7 +332,7 @@ MyVideoProject/
 
 ## 🚧 Development Status
 
-Current Version: **0.0.9 (Alpha)**
+Current Version: **0.0.13 (Alpha)**
 
 ### ✅ Implemented
 - Project initialization (including subjects, scenes directories)

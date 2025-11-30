@@ -5,6 +5,7 @@ export const isAlternativeResourceFileName = (fileName: string): boolean => {
   return (
     fileName.includes('.o-') ||
     fileName.includes('-edited') ||
+    fileName.includes('-angle-') ||
     / - 副本(?: \(\d+\))?$/.test(nameWithoutExt)
   );
 };

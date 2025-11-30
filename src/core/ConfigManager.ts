@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import { ProviderConfig, TongyiConfig, ReplicateConfig, GoogleConfig, SoraConfig } from '../providers/types';
+import { RunningHubConfig } from '../types';
 
 export class ConfigManager {
   private context: vscode.ExtensionContext;
@@ -260,6 +261,25 @@ export class ConfigManager {
    */
   openSettings(): void {
     vscode.commands.executeCommand('workbench.action.openSettings', 'vibevideo');
+  }
+
+  /**
+   * 获取 RunningHub 配置（只需要 API Key 和 baseUrl）
+   */
+  async getRunningHubConfig(): Promise<RunningHubConfig | undefined> {
+    const config = this.getConfig();
+    
+    const apiKey = config.get<string>('runninghub.apiKey', '');
+    const baseUrl = config.get<string>('runninghub.baseUrl', '');
+
+    if (!apiKey) {
+      return undefined;
+    }
+
+    return {
+      apiKey,
+      baseUrl: baseUrl || undefined
+    };
   }
 }
 

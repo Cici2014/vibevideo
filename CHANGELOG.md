@@ -557,6 +557,76 @@ Sora Provider 多图合成功能特别适用于：
 
 ---
 
+## [0.0.13] - 2025-11-30
+
+### ✅ 新增功能
+
+#### RunningHub 工作流集成 ⭐
+- **RunningHub Provider 支持**：新增 `RunningHubClient` 类，支持调用 RunningHub 平台的工作流
+- **多角度首帧生成**：实现 `Vibe Video: Generate First Frame Angle` 命令系列
+  - 支持基础 4 个角度：俯视、仰视、广角、特写
+  - 支持更多角度选项菜单
+  - 使用 RunningHub 工作流进行图像编辑，生成不同角度的首帧变体
+- **镜头角度生成**：实现 `Vibe Video: Generate Camera Angle` 命令系列
+  - 支持水平角度：平视、正面、侧面、背面
+  - 支持垂直角度：俯拍、仰拍、鸟瞰、倾斜角度
+  - 支持镜头角度菜单，快速选择不同角度
+- **参考图一致性首帧生成**：实现 `Vibe Video: Generate First Frame From Markdown` 命令
+  - 从首帧 Markdown 文件中提取参考图片和提示词
+  - 使用 RunningHub 工作流生成与参考图一致的首帧图片
+  - 支持多张参考图片（逗号分隔）
+  - 自动更新分镜脚本中的首帧路径
+
+#### 配置管理增强
+- 新增 `vibevideo.runninghub.apiKey` 配置项
+- 新增 `vibevideo.runninghub.baseUrl` 配置项（默认：https://www.runninghub.cn）
+- 支持从工作区配置文件 `.vibevideo/runninghub-workflows.json` 加载自定义工作流配置
+- 支持为不同角度配置不同的工作流
+
+#### 文档更新
+- 新增 `DOC/cursor-user-guide.md` - Cursor 用户使用指南
+  - 详细介绍如何使用 Cursor AI 配合 VibeVideo 制作视频
+  - 包含完整的工作流示例和最佳实践
+- 新增 `DOC/runninghub-workflow-guide.md` - RunningHub 工作流创建指南
+  - 详细说明如何在 RunningHub 平台创建工作流
+  - 包含节点配置、API 调用等完整步骤
+- 更新 `templates/storyboard-guide.md` - 分镜指南模板
+- 新增 `templates/runninghub-workflows.example.json` - RunningHub 工作流配置示例
+
+#### 用户体验改进
+- 资源树视图支持显示 RunningHub 生成的首帧变体
+- 右键菜单新增角度生成选项
+- 友好的进度显示和错误处理
+- 智能文件命名，避免文件名冲突
+
+### 📊 技术细节
+
+- 新增文件：`src/providers/RunningHubClient.ts`（RunningHub API 客户端）
+- 新增文件：`src/commands/generateCameraAngle.ts`（镜头角度生成命令）
+- 新增文件：`src/commands/generateFirstFrameAngle.ts`（首帧角度生成命令）
+- 新增文件：`src/commands/generateFirstFrameFromMarkdown.ts`（参考图一致性首帧生成）
+- 新增文件：`src/config/runninghub-workflows.json`（默认工作流配置）
+- 更新文件：`src/core/ConfigManager.ts`（添加 RunningHub 配置支持）
+- 更新文件：`src/core/StoryboardParser.ts`（增强参考图解析）
+- 更新文件：`src/types.ts`（添加 RunningHub 相关类型定义）
+
+### 🎯 使用场景
+
+RunningHub 工作流集成特别适用于：
+- **多角度视频制作**：快速生成同一场景的不同角度变体
+- **参考图驱动工作流**：使用参考图片确保生成内容的一致性
+- **专业视频制作**：通过工作流实现复杂的图像处理需求
+- **自定义工作流**：支持在 RunningHub 平台创建自定义工作流并集成使用
+
+### ⚠️ 注意事项
+
+- RunningHub 功能需要配置有效的 RunningHub API Key
+- 工作流配置可通过 `.vibevideo/runninghub-workflows.json` 文件自定义
+- 默认工作流 ID 为 `1994959996884594690`，可在配置文件中修改
+- 不同角度可以使用不同的工作流，提供更灵活的配置选项
+
+---
+
 ## [Unreleased]
 
 ### 计划功能

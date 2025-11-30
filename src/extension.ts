@@ -21,6 +21,9 @@ import { generateAllFirstFrames, generateFirstFrameForStoryboard } from './comma
 import { generateAllSubjects, generateSingleSubjectCommand } from './commands/generateSubjects';
 import { generateAllScenes, generateSingleSceneCommand } from './commands/generateScenes';
 import { editImage } from './commands/editImage';
+import { generateFirstFrameAngle, showAdvancedAngleMenu, BASIC_ANGLES } from './commands/generateFirstFrameAngle';
+import { generateCameraAngle, showCameraAngleMenu, HORIZONTAL_ANGLES, VERTICAL_ANGLES } from './commands/generateCameraAngle';
+import { generateFirstFrameFromMarkdown } from './commands/generateFirstFrameFromMarkdown';
 import { composeAllVideos } from './commands/composeVideo';
 import { extractLastFrameToNext } from './commands/extractLastFrame';
 import { getWorkspaceRoot, isVVProject, copyFile, ensureDir, fileExists, renameFile, deleteFile, generateUniqueFileName } from './utils/fileSystem';
@@ -254,6 +257,18 @@ export function activate(context: vscode.ExtensionContext) {
         configManager,
         sceneManager
       );
+    }
+  );
+
+  // 从 Markdown 生成分镜首帧图片（使用 RunningHub 工作流）
+  const generateFirstFrameFromMarkdownCommand = vscode.commands.registerCommand(
+    'vibevideo.generateFirstFrameFromMarkdown',
+    async (item: ResourceTreeItem) => {
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
+      await generateFirstFrameFromMarkdown(item, configManager, resourceTreeProvider);
     }
   );
 
@@ -1538,6 +1553,72 @@ export function activate(context: vscode.ExtensionContext) {
     }
   );
 
+  // RunningHub 多角度首帧生成命令（基础4个角度）
+  const angleCommands = BASIC_ANGLES.map(angle => {
+    return vscode.commands.registerCommand(
+      `vibevideo.generateFirstFrameAngle.${angle.id}`,
+      async (item: ResourceTreeItem) => {
+        if (!configManager) {
+          vscode.window.showErrorMessage('配置管理器未初始化');
+          return;
+        }
+        await generateFirstFrameAngle(item, angle.id, angle.label, configManager, resourceTreeProvider);
+      }
+    );
+  });
+
+  // RunningHub 多角度首帧生成命令（更多角度选项）
+  const moreAnglesCommand = vscode.commands.registerCommand(
+    'vibevideo.generateFirstFrameAngle.more',
+    async (item: ResourceTreeItem) => {
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
+      await showAdvancedAngleMenu(item, configManager, resourceTreeProvider);
+    }
+  );
+
+  // 镜头角度生成命令（水平角度）
+  const horizontalAngleCommands = HORIZONTAL_ANGLES.map(angle => {
+    return vscode.commands.registerCommand(
+      `vibevideo.generateCameraAngle.${angle.id}`,
+      async (item: ResourceTreeItem) => {
+        if (!configManager) {
+          vscode.window.showErrorMessage('配置管理器未初始化');
+          return;
+        }
+        await generateCameraAngle(item, angle.id, angle.label, configManager, resourceTreeProvider);
+      }
+    );
+  });
+
+  // 镜头角度生成命令（垂直角度）
+  const verticalAngleCommands = VERTICAL_ANGLES.map(angle => {
+    return vscode.commands.registerCommand(
+      `vibevideo.generateCameraAngle.${angle.id}`,
+      async (item: ResourceTreeItem) => {
+        if (!configManager) {
+          vscode.window.showErrorMessage('配置管理器未初始化');
+          return;
+        }
+        await generateCameraAngle(item, angle.id, angle.label, configManager, resourceTreeProvider);
+      }
+    );
+  });
+
+  // 镜头角度生成命令（选择菜单）
+  const cameraAngleMenuCommand = vscode.commands.registerCommand(
+    'vibevideo.generateCameraAngle.menu',
+    async (item: ResourceTreeItem) => {
+      if (!configManager) {
+        vscode.window.showErrorMessage('配置管理器未初始化');
+        return;
+      }
+      await showCameraAngleMenu(item, configManager, resourceTreeProvider);
+    }
+  );
+
   // 复制资源命令（支持图片和视频）
   const copyImageCommand = vscode.commands.registerCommand(
     'vibevideo.copyImage',
@@ -1783,6 +1864,7 @@ export function activate(context: vscode.ExtensionContext) {
     generateSingleSceneCommandHandler,
     composeFirstFramesCommand,
     composeSingleFirstFrameCommand,
+    generateFirstFrameFromMarkdownCommand,
     generateVideosCommand,
     generateFirstFramesCommand,
     generateSingleVideoCommand,
@@ -1807,6 +1889,11 @@ export function activate(context: vscode.ExtensionContext) {
     composeVideoCommand,
     copyImageCommand,
     pasteImageCommand,
+    ...angleCommands,
+    moreAnglesCommand,
+    ...horizontalAngleCommands,
+    ...verticalAngleCommands,
+    cameraAngleMenuCommand,
     // 注册资源树提供者以便在扩展停用时清理监听器
     {
       dispose: () => {

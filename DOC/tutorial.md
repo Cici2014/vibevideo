@@ -174,6 +174,71 @@ MyVideoProject/
 - 主体/场景写入 `参考图` 字段后，生成命令会自动切换为多图合成（`composeMultipleImages`），直接基于参考图进行重绘
 - 首帧生成会复用主体图片，视频生成也会复用首帧，从而形成「参考图 → 主体 → 首帧 → 视频」的闭环
 
+### 6.2 RunningHub 多角度首帧生成（高级功能）
+
+当你已经生成了首帧图片，想要快速生成多个角度的候选图时，可以使用 RunningHub 工作流功能。
+
+#### 配置 RunningHub
+
+1. **创建 RunningHub 工作流**
+   - 首先需要在 RunningHub 平台创建一个多角度首帧生成工作流
+   - 详细步骤请参考：[RunningHub 工作流创建指南](runninghub-workflow-guide.md)
+   - 工作流需要包含：图片输入节点（LoadImage）、提示词编码节点（TextEncodeQwenImageEditPlus）、模型加载、采样器、图片保存等节点
+
+2. **获取 API Key**
+   - 登录 [RunningHub 平台](https://www.runninghub.cn)
+   - 点击右上角头像 → API 控制台
+   - 复制你的 API Key
+
+3. **在 VS Code 中配置 API Key**
+   - `Ctrl+,` → 搜索 `vibevideo.runninghub`
+   - 填写以下配置：
+     - `vibevideo.runninghub.apiKey`: 你的 RunningHub API Key
+     - `vibevideo.runninghub.baseUrl`: （可选）API 基础 URL，留空使用默认值
+
+4. **配置工作流参数**
+   - 在工作区根目录创建 `.vibevideo/` 目录（如果不存在）
+   - 复制 `templates/runninghub-workflows.example.json` 到 `.vibevideo/runninghub-workflows.json`
+   - 编辑配置文件，填入你创建的工作流信息：
+     - `workflowId`: 从工作流页面 URL 获取（例如：`https://www.runninghub.cn/workflow/1904136902449209346` → ID 为 `1904136902449209346`）
+     - `imageNodeId`: LoadImage 节点的编号（从工作流 JSON 中查找）
+     - `promptNodeId`: TextEncodeQwenImageEditPlus 节点的编号（从工作流 JSON 中查找）
+   - 可以为不同角度配置不同的工作流（在 `angleWorkflows` 中为每个角度单独配置）
+
+> 💡 **提示**：
+> - 如果工作区没有自定义配置文件，扩展会使用内置的默认配置（需要先创建对应的工作流）
+> - 工作流配置优先级：工作区配置文件 > 扩展默认配置
+> - 角度配置优先级：`angleWorkflows[角度ID]` > `defaultWorkflow`
+> - 详细的工作流创建步骤请参考：[RunningHub 工作流创建指南](runninghub-workflow-guide.md)
+
+#### 使用多角度生成
+
+1. **生成基础角度**
+   - 在资源树中，右键已生成的首帧图片
+   - 选择以下任一角度：
+     - `生成俯视角度`
+     - `生成仰视角度`
+     - `生成广角`
+     - `生成特写`
+
+2. **生成高级角度**
+   - 右键首帧图片 → `更多角度选项`
+   - 在弹出的菜单中选择：
+     - 左侧特写
+     - 右侧特写
+     - 过肩镜头
+     - 低角度
+     - 高角度
+     - 倾斜镜头
+
+3. **查看结果**
+   - 生成完成后，多角度图片会保存到 `first-frames/` 目录
+   - 命名格式：`<原首帧名>-angle-<角度ID>.png`
+   - 如果工作流返回多张图片，其余图片会使用 `.o-1`, `.o-2` 等后缀
+   - 使用"选中/不选中"命令选择最终使用的首帧版本
+
+> 💡 **提示**：多角度生成基于已有首帧图片，保持整体构图一致性，适合快速探索不同视角的候选方案。
+
 ### 7. 合成最终视频 ⭐
 
 生成所有视频片段后，将它们合成为最终视频：
@@ -301,6 +366,10 @@ MyVideoProject/
 - `vibevideo.image.subjectSize`：主体图片尺寸（可选，留空则使用统一图片尺寸）
 - `vibevideo.image.sceneSize`：场景图片尺寸（可选，留空则使用统一图片尺寸）
 - `vibevideo.image.firstFrameSize`：首帧图片尺寸（可选，留空则使用统一图片尺寸）
+- `vibevideo.runninghub.apiKey`：RunningHub API Key（用于多角度首帧生成等高级工作流）
+- `vibevideo.runninghub.baseUrl`：RunningHub API 基础 URL（可选，默认：`https://www.runninghub.cn`）
+
+> 💡 **注意**：工作流配置（workflowId、nodeId 等）已硬编码在代码中，用户只需配置 API Key 即可使用。
 
 **注意**：不同 Provider 的图片生成会使用不同的 API 服务：
 - **通义万相**：图片生成使用通义千问 API（`wan2.5-t2i-preview`、`qwen-image-edit-plus`）
@@ -343,8 +412,14 @@ A: 在分镜脚本中使用相对路径：`- **参考图**: ref-img/product.jpg`
 **Q: 如何从参考图开始创建完整项目？**  
 A: 流程如下：1）通过侧边栏/命令面板/手动方式把图片保存到 `ref-img/`; 2）在 `subjects/` 和 `scenes/` Markdown 中添加 `- **参考图**: ref-img/xxx.jpg` 字段，并在场景描述里注明“只保留背景”; 3）运行主体/场景/首帧/视频生成命令。系统会自动切换到多图合成，保证人物与参考图一致，场景也只保留环境。
 
+**Q: 如何使用 RunningHub 生成多角度首帧？**  
+A: 1）在 VS Code 设置中配置 RunningHub API Key；2）右键已生成的首帧图片，选择角度类型（俯视、仰视、广角、特写等）或点击"更多角度选项"选择高级角度。默认使用内置工作流配置，无需额外配置。
+
+**Q: 如何修改 RunningHub 工作流配置？**  
+A: 在工作区根目录创建 `.vibevideo/runninghub-workflows.json` 文件（参考 `templates/runninghub-workflows.example.json`），编辑配置文件中的 `workflowId`、`imageNodeId`、`promptNodeId` 等参数。可以为不同角度配置不同的工作流。
+
 **Q: 生成失败怎么办？**  
-A: 检查 API Key、网络连接、API 额度，查看 VS Code 输出面板的错误信息。
+A: 检查 API Key、网络连接、API 额度，查看 VS Code 输出面板的错误信息。对于 RunningHub 工作流，请确认 nodeId 和 fieldName 配置正确。
 
 **Q: 可以使用本地部署的模型吗？**  
 A: 可以。配置 `vibevideo.dashscope.baseUrl` 或 `vibevideo.sora.baseUrl` 为本地服务地址。

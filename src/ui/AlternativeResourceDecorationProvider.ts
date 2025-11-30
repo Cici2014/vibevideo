@@ -8,8 +8,16 @@ export class AlternativeResourceDecorationProvider implements vscode.FileDecorat
   provideFileDecoration(uri: vscode.Uri): vscode.ProviderResult<vscode.FileDecoration> {
     const fileName = path.basename(uri.fsPath);
     if (isAlternativeResourceFileName(fileName)) {
+      let tooltip = '备选文件';
+      if (fileName.includes('-angle-')) {
+        tooltip = '角度变体文件';
+      } else if (fileName.includes('.o-')) {
+        tooltip = '备选文件';
+      } else if (fileName.includes('-edited')) {
+        tooltip = '编辑后的文件';
+      }
       return {
-        tooltip: '备选文件',
+        tooltip,
         color: new vscode.ThemeColor('disabledForeground')
       };
     }

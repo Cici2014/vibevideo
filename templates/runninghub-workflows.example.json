@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "description": "RunningHub 工作流配置示例 - 复制此文件到工作区根目录的 .vibevideo/ 目录下，并重命名为 runninghub-workflows.json",
+  "defaultWorkflow": {
+    "workflowId": "1904136902449209346",
+    "imageNodeId": "74",
+    "imageFieldName": "image",
+    "promptNodeId": "76",
+    "promptFieldName": "text"
+  },
+  "angleWorkflows": {
+    "overhead": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "underside": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "wide": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "closeup": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "closeup-left": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "closeup-right": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "over-shoulder": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "low-angle": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "high-angle": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    },
+    "dutch-angle": {
+      "workflowId": "1904136902449209346",
+      "imageNodeId": "74",
+      "imageFieldName": "image",
+      "promptNodeId": "76",
+      "promptFieldName": "text"
+    }
+  }
+}
+

@@ -127,3 +127,30 @@ export interface StoryboardWithSubjects extends Storyboard {
   layout?: string;
 }
 
+/**
+ * RunningHub 节点信息
+ */
+export interface RunningHubNodeInfo {
+  nodeId: string;
+  fieldName: string;
+  fieldValue: string;
+}
+
+/**
+ * RunningHub 任务输出
+ */
+export interface RunningHubTaskOutput {
+  fileUrl: string;
+  fileType: string;
+  taskCostTime?: string;
+  nodeId?: string;
+}
+
+/**
+ * RunningHub 配置（工作流配置硬编码在代码中）
+ */
+export interface RunningHubConfig {
+  apiKey: string;
+  baseUrl?: string;
+}
+
